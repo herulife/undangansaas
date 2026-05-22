@@ -74,6 +74,7 @@ func main() {
 
 	router.Get("/health", api.health)
 	router.Route("/api", func(r chi.Router) {
+		r.Get("/health", api.health)
 		r.Get("/templates", api.listTemplates)
 		r.Get("/invitations", api.listInvitations)
 		r.Get("/invitations/{slug}", api.getInvitation)

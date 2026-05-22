@@ -65,6 +65,28 @@ Aturan kerja:
 - VPS mengambil versi dari GitHub agar production bisa direproduksi.
 - Setiap deploy harus dicek minimal: web load, API health, dan fitur utama yang berubah.
 
+## Deploy VPS
+
+Production stack memakai `docker-compose.production.yml`.
+
+```bash
+git pull --ff-only
+cp .env.example .env.production
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+```
+
+Service production:
+
+- `undangansaas-web` - static Vite React via Nginx.
+- `undangansaas-api` - Go API.
+- `undangansaas-db` - PostgreSQL.
+
+Health check setelah deploy:
+
+```bash
+curl http://undangansaas-api:8088/api/health
+```
+
 ## Roadmap MVP
 
 - Auth user dan workspace.

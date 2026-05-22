@@ -1,0 +1,55 @@
+services:
+  undangansaas-db:
+    image: postgres:15-alpine
+    container_name: undangansaas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-undangan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-undangan}
+    volumes:
+      - undangansaas_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-undangan_user} -d ${POSTGRES_DB:-undangan}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  undangansaas-api:
+    build:
+      context: ./apps/api
+    container_name: undangansaas-api
+    restart: unless-stopped
+    environment:
+      APP_PORT: "8088"
+      DATABASE_URL: postgres://${POSTGRES_USER:-undangan_user}:${POSTGRES_PASSWORD:-change-me}@undangansaas-db:5432/${POSTGRES_DB:-undangan}?sslmode=disable
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://cintabuku.site}
+    depends_on:
+      undangansaas-db:
+        condition: service_healthy
+    expose:
+      - "8088"
+    networks:
+      - app-network
+
+  undangansaas-web:
+    build:
+      context: ./apps/web
+    container_name: undangansaas-web
+    restart: unless-stopped
+    depends_on:
+      - undangansaas-api
+    expose:
+      - "80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
+    name: my-docker-apps_app-network
+
+volumes:
+  undangansaas_db:
