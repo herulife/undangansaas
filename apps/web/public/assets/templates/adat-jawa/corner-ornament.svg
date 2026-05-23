@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-label="Ornamen sudut Jawa">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#d7a654"/>
+      <stop offset="1" stop-color="#064346"/>
+    </linearGradient>
+  </defs>
+  <path fill="none" stroke="url(#g)" stroke-linecap="round" stroke-width="10" d="M24 196C49 110 110 49 196 24"/>
+  <path fill="none" stroke="#b98039" stroke-linecap="round" stroke-width="6" d="M32 156c47-5 84-42 89-89M69 190c8-55 50-97 105-105"/>
+  <g fill="#064346">
+    <path d="M51 127c25-8 42-26 50-51 8 25 26 43 51 51-25 8-43 26-51 51-8-25-25-43-50-51Z"/>
+    <path d="M122 54c15-5 26-16 31-31 5 15 16 26 31 31-15 5-26 16-31 31-5-15-16-26-31-31Z"/>
+  </g>
+  <g fill="#f2d083">
+    <circle cx="32" cy="188" r="8"/>
+    <circle cx="188" cy="32" r="8"/>
+    <circle cx="108" cy="108" r="7"/>
+  </g>
+</svg>

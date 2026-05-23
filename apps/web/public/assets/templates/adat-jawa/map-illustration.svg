@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-label="Ilustrasi peta">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#f9f1df"/>
+      <stop offset="1" stop-color="#d9c29a"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="360" rx="38" fill="url(#bg)"/>
+  <g fill="none" stroke="#064346" stroke-linecap="round" stroke-width="12" opacity=".36">
+    <path d="M24 96c120 10 171 61 255 56 91-5 130-72 231-68 74 3 126 43 186 43"/>
+    <path d="M42 257c100-52 181-40 242-3 70 43 136 51 216-5 58-40 103-44 174-25"/>
+    <path d="M190 18c-12 76 1 135 38 176 35 38 48 83 33 138"/>
+    <path d="M526 23c-26 63-27 124-2 183 15 35 15 74-2 117"/>
+  </g>
+  <g>
+    <path fill="#064346" d="M360 74c-59 0-107 48-107 107 0 82 107 145 107 145s107-63 107-145c0-59-48-107-107-107Z"/>
+    <circle cx="360" cy="181" r="48" fill="#f8df9f"/>
+    <path fill="#b87931" d="M360 137c17 24 34 39 63 44-29 6-46 20-63 44-17-24-34-38-63-44 29-5 46-20 63-44Z"/>
+  </g>
+</svg>

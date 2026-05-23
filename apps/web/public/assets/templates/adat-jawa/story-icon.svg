@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Ikon cerita">
+  <circle cx="90" cy="90" r="78" fill="#064346"/>
+  <circle cx="90" cy="90" r="62" fill="none" stroke="#e3bd71" stroke-width="8"/>
+  <path fill="#f7e1ad" d="M90 38c13 21 28 34 51 40-23 6-38 19-51 40-13-21-28-34-51-40 23-6 38-19 51-40Z"/>
+  <path fill="none" stroke="#f7e1ad" stroke-linecap="round" stroke-width="8" d="M54 123c24-10 48-10 72 0M66 140c16-6 32-6 48 0"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 340" role="img" aria-label="Amplop digital">
+  <defs>
+    <linearGradient id="paper" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#fff8e9"/>
+      <stop offset="1" stop-color="#e4c998"/>
+    </linearGradient>
+  </defs>
+  <rect x="46" y="62" width="428" height="236" rx="32" fill="#064346"/>
+  <path fill="url(#paper)" d="M68 83h384v192H68z"/>
+  <path fill="#d09b49" d="M68 83l192 129L452 83v35L260 247 68 118z"/>
+  <path fill="#f5dfad" d="M68 275l142-106 50 34 50-34 142 106z"/>
+  <path fill="#064346" d="M260 94c16 19 33 31 57 36-24 5-41 17-57 36-16-19-33-31-57-36 24-5 41-17 57-36Z" opacity=".85"/>
+  <g fill="none" stroke="#d09b49" stroke-linecap="round" stroke-width="8">
+    <path d="M128 123h62M330 123h62"/>
+    <path d="M133 246h254"/>
+  </g>
+</svg>

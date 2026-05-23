@@ -1051,6 +1051,11 @@ function PublicInvitationPage({
         <div className="cover-panel cover-panel-left" />
         <div className="cover-panel cover-panel-right" />
         <div className="clone-cover-card">
+          <img
+            alt="Ornamen gunungan Jawa"
+            className="gunungan-mark"
+            src="/assets/templates/adat-jawa/gunungan.svg"
+          />
           <p className="clone-kicker">The Wedding Of</p>
           <h1>{invitation.couple}</h1>
           <span>Sabtu, {eventDate}</span>
@@ -1116,7 +1121,9 @@ function PublicInvitationPage({
         <div className="map-card" id="lokasi">
           <span>Lokasi</span>
           <h2>Petunjuk Arah</h2>
-          <div className="map-placeholder">Maps Embed</div>
+          <div className="map-placeholder">
+            <img alt="Ilustrasi peta lokasi acara" src="/assets/templates/adat-jawa/map-illustration.svg" />
+          </div>
           <a className="clone-open-button" href="https://maps.google.com" rel="noreferrer" target="_blank">
             Buka Google Maps
           </a>
@@ -1140,7 +1147,9 @@ function PublicInvitationPage({
             ['Hari Bahagia', 'Dengan izin Allah, kami melangkah menuju ibadah pernikahan.'],
           ].map(([title, text]) => (
             <article key={title}>
-              <span />
+              <span>
+                <img alt="" src="/assets/templates/adat-jawa/story-icon.svg" />
+              </span>
               <div>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -1173,6 +1182,11 @@ function PublicInvitationPage({
         <div className="gift-card" id="gift">
           <span>Amplop Digital</span>
           <h2>Tanda Kasih</h2>
+          <img
+            alt="Ilustrasi amplop digital"
+            className="gift-illustration"
+            src="/assets/templates/adat-jawa/gift-envelope.svg"
+          />
           <p>Fitur rekening, QR, dan kado fisik akan tersambung ke editor paket premium.</p>
           <button className="clone-open-button" type="button">Salin Rekening</button>
         </div>

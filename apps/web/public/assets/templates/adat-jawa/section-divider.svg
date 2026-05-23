@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 96" role="img" aria-label="Pembatas batik">
+  <rect width="680" height="96" fill="none"/>
+  <path fill="none" stroke="#064346" stroke-linecap="round" stroke-width="4" d="M96 48h488"/>
+  <g fill="#064346">
+    <path d="M340 14c16 18 32 29 54 34-22 5-38 16-54 34-16-18-32-29-54-34 22-5 38-16 54-34Z"/>
+    <path d="M208 27c10 12 21 19 35 21-14 3-25 10-35 21-10-11-21-18-35-21 14-2 25-9 35-21Zm264 0c10 12 21 19 35 21-14 3-25 10-35 21-10-11-21-18-35-21 14-2 25-9 35-21Z"/>
+  </g>
+  <g fill="#d6a456">
+    <circle cx="96" cy="48" r="10"/>
+    <circle cx="584" cy="48" r="10"/>
+    <circle cx="340" cy="48" r="13"/>
+  </g>
+</svg>
