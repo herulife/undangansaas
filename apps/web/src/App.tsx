@@ -873,26 +873,62 @@ function PublicInvitationPage({
   }
 
   return (
-    <main className="paper-grain min-screen adat-jawa-theme">
-      <section className="public-invite">
-        <p className="eyebrow ornament">The wedding of</p>
-        <h1>{invitation.couple}</h1>
-        <p>Sabtu, {eventDate}</p>
-        <div className="guest-card">
-          <span>Kepada Yth.</span>
-          <strong>Bapak/Ibu/Saudara/i</strong>
-          <button className="button primary" type="button">
+    <main className="clone-invite-shell">
+      <section className="clone-cover min-screen" id="cover">
+        <div className="cover-panel cover-panel-left" />
+        <div className="cover-panel cover-panel-right" />
+        <div className="clone-cover-card">
+          <p className="clone-kicker">The Wedding Of</p>
+          <h1>{invitation.couple}</h1>
+          <span>Sabtu, {eventDate}</span>
+          <div className="clone-recipient">
+            <small>Kepada Yth.</small>
+            <strong>Bapak/Ibu/Saudara/i</strong>
+          </div>
+          <a className="clone-open-button" href="#detail-acara">
             Buka Undangan
-          </button>
+          </a>
         </div>
-        <div className="event-grid" id="detail-acara">
-          {['Akad Nikah', 'Resepsi', 'Live Streaming'].map((item) => (
-            <article key={item}>
-              <h2>{item}</h2>
-              <p>Detail acara siap dihubungkan ke editor.</p>
-            </article>
+      </section>
+
+      <section className="clone-page" id="detail-acara">
+        <div className="clone-photo-card">
+          <div className="clone-photo">J & C</div>
+          <p className="clone-kicker">Assalamu'alaikum Warahmatullahi Wabarakatuh</p>
+          <h2>{invitation.couple}</h2>
+          <p>
+            Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud
+            menyelenggarakan pernikahan putra-putri kami.
+          </p>
+        </div>
+
+        <div className="clone-countdown">
+          {['Hari', 'Jam', 'Menit', 'Detik'].map((label, index) => (
+            <b key={label}>
+              {index === 0 ? '28' : '00'}
+              <small>{label}</small>
+            </b>
           ))}
         </div>
+
+        <div className="clone-frame">
+          <span>Akad Nikah</span>
+          <h2>Sabtu, {eventDate}</h2>
+          <p>08.00 WIB sampai selesai</p>
+        </div>
+
+        <div className="clone-frame">
+          <span>Resepsi</span>
+          <h2>Gedung Serbaguna Darussunnah</h2>
+          <p>Detail lokasi dan maps akan tersambung ke editor.</p>
+        </div>
+
+        <div className="clone-gallery">
+          {[1, 2, 3].map((item) => (
+            <div key={item}>Galeri {item}</div>
+          ))}
+        </div>
+
         <PublicRSVPForm
           form={form}
           isSubmittingRSVP={isSubmittingRSVP}
@@ -904,6 +940,7 @@ function PublicInvitationPage({
           Dibuat dengan CintaBuku
         </a>
       </section>
+      <InviteBottomNav />
     </main>
   )
 }
