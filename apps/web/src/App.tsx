@@ -13,6 +13,7 @@ type Invitation = {
   slug: string
   couple: string
   template: string
+  templateSlug?: string
   eventDate: string
   status: string
   rsvpCount: number
@@ -53,9 +54,9 @@ const templateMeta: Record<string, { style: string; accent: string }> = {
     style: 'Tradisional, batik, krem emas',
     accent: '#9b5f2e',
   },
-  'modern-editorial': {
-    style: 'Clean, foto besar, tipografi elegan',
-    accent: '#334155',
+  'klasik-hijau-emas': {
+    style: 'Frame elegan, hijau gelap, aksen emas',
+    accent: '#064346',
   },
   'floral-garden': {
     style: 'Bunga lembut, pastel, romantis',
@@ -71,10 +72,10 @@ const fallbackTemplates: Template[] = [
     category: 'premium',
   },
   {
-    id: 'tmp-modern-001',
-    name: 'Modern Editorial',
-    slug: 'modern-editorial',
-    category: 'basic',
+    id: 'tmp-classic-001',
+    name: 'Klasik Hijau Emas',
+    slug: 'klasik-hijau-emas',
+    category: 'premium',
   },
   {
     id: 'tmp-floral-001',
@@ -89,14 +90,16 @@ const fallbackInvitations: Invitation[] = [
     slug: 'joko-cikita',
     couple: 'Joko & Cikita',
     template: 'Adat Jawa Klasik',
+    templateSlug: 'adat-jawa',
     eventDate: '2026-06-20',
     status: 'Published',
     rsvpCount: 128,
   },
   {
-    slug: 'demo-adat-jawa',
+    slug: 'rama-shinta',
     couple: 'Rama & Shinta',
-    template: 'Adat Jawa Klasik',
+    template: 'Klasik Hijau Emas',
+    templateSlug: 'klasik-hijau-emas',
     eventDate: '2026-08-12',
     status: 'Draft',
     rsvpCount: 0,
@@ -486,7 +489,7 @@ function TemplatesPage({ templates }: { templates: Template[] }) {
                   <span>{style.style}</span>
                   <a
                     className="button secondary"
-                    href={`/u/${template.slug === 'adat-jawa' ? 'joko-cikita' : 'demo-adat-jawa'}`}
+                    href={`/u/${template.slug === 'klasik-hijau-emas' ? 'rama-shinta' : 'joko-cikita'}`}
                   >
                     Preview
                   </a>
@@ -823,8 +826,54 @@ function PublicInvitationPage({
     }
   }
 
+  if (invitation.templateSlug === 'klasik-hijau-emas') {
+    return (
+      <main className="classic-green-theme min-screen">
+        <section className="classic-hero">
+          <div className="classic-frame">
+            <p className="eyebrow">Walimatul Urs</p>
+            <h1>{invitation.couple}</h1>
+            <span>{eventDate}</span>
+            <div className="classic-divider" />
+            <p>Dengan hormat kami mengundang Bapak/Ibu/Saudara/i untuk hadir.</p>
+            <a className="button gold" href="#rsvp">
+              Buka Undangan
+            </a>
+          </div>
+        </section>
+
+        <section className="classic-content">
+          <article className="classic-card">
+            <span>Menuju Hari Bahagia</span>
+            <div className="countdown-row">
+              {['Hari', 'Jam', 'Menit', 'Detik'].map((label, index) => (
+                <b key={label}>
+                  {index === 0 ? '28' : '00'}
+                  <small>{label}</small>
+                </b>
+              ))}
+            </div>
+          </article>
+          <article className="classic-card">
+            <span>Akad & Resepsi</span>
+            <h2>Sabtu, {eventDate}</h2>
+            <p>Detail venue, maps, dan susunan acara siap dihubungkan ke editor.</p>
+          </article>
+          <PublicRSVPForm
+            form={form}
+            isSubmittingRSVP={isSubmittingRSVP}
+            onChange={setForm}
+            onSubmit={handleSubmit}
+            rsvpMessage={rsvpMessage}
+          />
+        </section>
+        <InviteBottomNav />
+      </main>
+    )
+  }
+
   return (
-    <main className="paper-grain min-screen">
+    <main className="paper-grain min-screen adat-jawa-theme">
       <section className="public-invite">
         <p className="eyebrow ornament">The wedding of</p>
         <h1>{invitation.couple}</h1>
@@ -836,7 +885,7 @@ function PublicInvitationPage({
             Buka Undangan
           </button>
         </div>
-        <div className="event-grid">
+        <div className="event-grid" id="detail-acara">
           {['Akad Nikah', 'Resepsi', 'Live Streaming'].map((item) => (
             <article key={item}>
               <h2>{item}</h2>
@@ -844,57 +893,93 @@ function PublicInvitationPage({
             </article>
           ))}
         </div>
-        <form className="rsvp-form" onSubmit={handleSubmit}>
-          <h2>Konfirmasi Kehadiran</h2>
-          <label>
-            Nama
-            <input
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="Nama Anda"
-              required
-              type="text"
-              value={form.name}
-            />
-          </label>
-          <label>
-            Kehadiran
-            <select
-              onChange={(event) => setForm({ ...form, status: event.target.value })}
-              value={form.status}
-            >
-              <option value="attending">Hadir</option>
-              <option value="declined">Tidak hadir</option>
-            </select>
-          </label>
-          <label>
-            Jumlah tamu
-            <input
-              max="10"
-              min="1"
-              onChange={(event) => setForm({ ...form, guests: Number(event.target.value) })}
-              type="number"
-              value={form.guests}
-            />
-          </label>
-          <label className="wide-field">
-            Ucapan
-            <textarea
-              onChange={(event) => setForm({ ...form, message: event.target.value })}
-              placeholder="Tulis ucapan singkat"
-              rows={4}
-              value={form.message}
-            />
-          </label>
-          <button className="button primary" disabled={isSubmittingRSVP} type="submit">
-            {isSubmittingRSVP ? 'Mengirim...' : 'Kirim RSVP'}
-          </button>
-          {rsvpMessage ? <p className="form-message">{rsvpMessage}</p> : null}
-        </form>
+        <PublicRSVPForm
+          form={form}
+          isSubmittingRSVP={isSubmittingRSVP}
+          onChange={setForm}
+          onSubmit={handleSubmit}
+          rsvpMessage={rsvpMessage}
+        />
         <a className="credit" href="/">
           Dibuat dengan CintaBuku
         </a>
       </section>
     </main>
+  )
+}
+
+function PublicRSVPForm({
+  form,
+  isSubmittingRSVP,
+  onChange,
+  onSubmit,
+  rsvpMessage,
+}: {
+  form: RSVPInput
+  isSubmittingRSVP: boolean
+  onChange: (form: RSVPInput) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  rsvpMessage: string
+}) {
+  return (
+    <form className="rsvp-form" id="rsvp" onSubmit={onSubmit}>
+      <h2>Konfirmasi Kehadiran</h2>
+      <label>
+        Nama
+        <input
+          onChange={(event) => onChange({ ...form, name: event.target.value })}
+          placeholder="Nama Anda"
+          required
+          type="text"
+          value={form.name}
+        />
+      </label>
+      <label>
+        Kehadiran
+        <select
+          onChange={(event) => onChange({ ...form, status: event.target.value })}
+          value={form.status}
+        >
+          <option value="attending">Hadir</option>
+          <option value="declined">Tidak hadir</option>
+        </select>
+      </label>
+      <label>
+        Jumlah tamu
+        <input
+          max="10"
+          min="1"
+          onChange={(event) => onChange({ ...form, guests: Number(event.target.value) })}
+          type="number"
+          value={form.guests}
+        />
+      </label>
+      <label className="wide-field">
+        Ucapan
+        <textarea
+          onChange={(event) => onChange({ ...form, message: event.target.value })}
+          placeholder="Tulis ucapan singkat"
+          rows={4}
+          value={form.message}
+        />
+      </label>
+      <button className="button primary" disabled={isSubmittingRSVP} type="submit">
+        {isSubmittingRSVP ? 'Mengirim...' : 'Kirim RSVP'}
+      </button>
+      {rsvpMessage ? <p className="form-message">{rsvpMessage}</p> : null}
+    </form>
+  )
+}
+
+function InviteBottomNav() {
+  return (
+    <nav className="invite-bottom-nav">
+      {['Cover', 'Acara', 'RSVP'].map((item) => (
+        <a href={item === 'Cover' ? '#' : item === 'RSVP' ? '#rsvp' : '#detail-acara'} key={item}>
+          {item}
+        </a>
+      ))}
+    </nav>
   )
 }
 

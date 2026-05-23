@@ -28,14 +28,15 @@ type template struct {
 }
 
 type invitation struct {
-	ID        string    `json:"id"`
-	Slug      string    `json:"slug"`
-	Couple    string    `json:"couple"`
-	Template  string    `json:"template"`
-	EventDate string    `json:"eventDate"`
-	Status    string    `json:"status"`
-	RSVPCount int       `json:"rsvpCount"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID           string    `json:"id"`
+	Slug         string    `json:"slug"`
+	Couple       string    `json:"couple"`
+	Template     string    `json:"template"`
+	TemplateSlug string    `json:"templateSlug"`
+	EventDate    string    `json:"eventDate"`
+	Status       string    `json:"status"`
+	RSVPCount    int       `json:"rsvpCount"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type createInvitationRequest struct {
@@ -157,11 +158,11 @@ func (a *app) listTemplates(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.db.Query(r.Context(), `
-		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
+		select invitations.id, invitations.slug, invitations.couple, templates.name, templates.slug, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
 		from invitations
 		join templates on templates.id = invitations.template_id
 		left join rsvps on rsvps.invitation_id = invitations.id
-		group by invitations.id, templates.name
+		group by invitations.id, templates.name, templates.slug
 		order by invitations.created_at desc
 	`)
 	if err != nil {
@@ -173,7 +174,7 @@ func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
 	items := []invitation{}
 	for rows.Next() {
 		var item invitation
-		if err := rows.Scan(&item.ID, &item.Slug, &item.Couple, &item.Template, &item.EventDate, &item.Status, &item.RSVPCount, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Slug, &item.Couple, &item.Template, &item.TemplateSlug, &item.EventDate, &item.Status, &item.RSVPCount, &item.CreatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
@@ -215,7 +216,7 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 	var item invitation
 	err := a.db.QueryRow(r.Context(), `
 		with selected_template as (
-			select id, name
+			select id, name, slug
 			from templates
 			where slug = $4
 		),
@@ -225,7 +226,7 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 			from selected_template
 			returning id, slug, couple, event_date, status, created_at
 		)
-		select inserted.id, inserted.slug, inserted.couple, selected_template.name, inserted.event_date::text, inserted.status, 0, inserted.created_at
+		select inserted.id, inserted.slug, inserted.couple, selected_template.name, selected_template.slug, inserted.event_date::text, inserted.status, 0, inserted.created_at
 		from inserted
 		join selected_template on true
 	`, payload.Slug, payload.Couple, payload.EventDate, payload.TemplateSlug).Scan(
@@ -233,6 +234,7 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 		&item.Slug,
 		&item.Couple,
 		&item.Template,
+		&item.TemplateSlug,
 		&item.EventDate,
 		&item.Status,
 		&item.RSVPCount,
@@ -253,13 +255,13 @@ func (a *app) getInvitation(w http.ResponseWriter, r *http.Request) {
 	var item invitation
 
 	err := a.db.QueryRow(r.Context(), `
-		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
+		select invitations.id, invitations.slug, invitations.couple, templates.name, templates.slug, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
 		from invitations
 		join templates on templates.id = invitations.template_id
 		left join rsvps on rsvps.invitation_id = invitations.id
 		where invitations.slug = $1
-		group by invitations.id, templates.name
-	`, slug).Scan(&item.ID, &item.Slug, &item.Couple, &item.Template, &item.EventDate, &item.Status, &item.RSVPCount, &item.CreatedAt)
+		group by invitations.id, templates.name, templates.slug
+	`, slug).Scan(&item.ID, &item.Slug, &item.Couple, &item.Template, &item.TemplateSlug, &item.EventDate, &item.Status, &item.RSVPCount, &item.CreatedAt)
 
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("invitation not found"))
@@ -316,13 +318,13 @@ func (a *app) updateInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.db.QueryRow(r.Context(), `
-		select templates.name, count(rsvps.id)
+		select templates.name, templates.slug, count(rsvps.id)
 		from invitations
 		join templates on templates.id = invitations.template_id
 		left join rsvps on rsvps.invitation_id = invitations.id
 		where invitations.id = $1
-		group by templates.name
-	`, item.ID).Scan(&item.Template, &item.RSVPCount)
+		group by templates.name, templates.slug
+	`, item.ID).Scan(&item.Template, &item.TemplateSlug, &item.RSVPCount)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -446,13 +448,21 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		);
 
 		insert into templates (name, slug, category)
-		values ('Adat Jawa Klasik', 'adat-jawa', 'premium')
+		values
+			('Adat Jawa Klasik', 'adat-jawa', 'premium'),
+			('Klasik Hijau Emas', 'klasik-hijau-emas', 'premium')
 		on conflict (slug) do nothing;
 
 		insert into invitations (template_id, slug, couple, event_date, status)
 		select id, 'joko-cikita', 'Joko & Cikita', '2026-06-20', 'published'
 		from templates
 		where slug = 'adat-jawa'
+		on conflict (slug) do nothing;
+
+		insert into invitations (template_id, slug, couple, event_date, status)
+		select id, 'rama-shinta', 'Rama & Shinta', '2026-08-12', 'published'
+		from templates
+		where slug = 'klasik-hijau-emas'
 		on conflict (slug) do nothing;
 	`)
 	return err
