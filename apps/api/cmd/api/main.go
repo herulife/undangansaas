@@ -157,7 +157,7 @@ func (a *app) listTemplates(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.db.Query(r.Context(), `
-		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date, invitations.status, count(rsvps.id), invitations.created_at
+		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
 		from invitations
 		join templates on templates.id = invitations.template_id
 		left join rsvps on rsvps.invitation_id = invitations.id
@@ -225,7 +225,7 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 			from selected_template
 			returning id, slug, couple, event_date, status, created_at
 		)
-		select inserted.id, inserted.slug, inserted.couple, selected_template.name, inserted.event_date, inserted.status, 0, inserted.created_at
+		select inserted.id, inserted.slug, inserted.couple, selected_template.name, inserted.event_date::text, inserted.status, 0, inserted.created_at
 		from inserted
 		join selected_template on true
 	`, payload.Slug, payload.Couple, payload.EventDate, payload.TemplateSlug).Scan(
@@ -253,7 +253,7 @@ func (a *app) getInvitation(w http.ResponseWriter, r *http.Request) {
 	var item invitation
 
 	err := a.db.QueryRow(r.Context(), `
-		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date, invitations.status, count(rsvps.id), invitations.created_at
+		select invitations.id, invitations.slug, invitations.couple, templates.name, invitations.event_date::text, invitations.status, count(rsvps.id), invitations.created_at
 		from invitations
 		join templates on templates.id = invitations.template_id
 		left join rsvps on rsvps.invitation_id = invitations.id
@@ -301,7 +301,7 @@ func (a *app) updateInvitation(w http.ResponseWriter, r *http.Request) {
 			event_date = $3,
 			status = $4
 		where slug = $1
-		returning id, slug, couple, event_date, status, created_at
+		returning id, slug, couple, event_date::text, status, created_at
 	`, slug, payload.Couple, payload.EventDate, payload.Status).Scan(
 		&item.ID,
 		&item.Slug,
