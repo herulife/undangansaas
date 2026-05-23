@@ -77,6 +77,8 @@ button {
 .nav-links a:hover,
 .table-head a,
 .invite-row a,
+.row-actions button,
+.created-link a,
 .credit {
   color: var(--accent);
 }
@@ -490,6 +492,18 @@ h1 {
   margin: 0;
 }
 
+.created-link {
+  color: var(--muted);
+  font-size: 14px;
+  grid-column: 1 / -1;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.created-link a {
+  overflow-wrap: anywhere;
+}
+
 .table-head {
   align-items: center;
   display: flex;
@@ -498,7 +512,9 @@ h1 {
 
 .table-head a,
 .invite-row a,
-.row-actions a {
+.row-actions a,
+.row-actions button,
+.created-link a {
   font-weight: 900;
 }
 
@@ -515,13 +531,22 @@ h1 {
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 16px;
-  grid-template-columns: 1fr 1fr 120px 100px;
+  grid-template-columns: 1fr 1fr 120px 190px;
   padding: 18px;
 }
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.row-actions button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
 }
 
 .invite-row:last-child {

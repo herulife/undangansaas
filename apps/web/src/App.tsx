@@ -170,10 +170,10 @@ function useAPIData() {
       setInvitations((current) => [createdInvitation, ...current])
       setSource('api')
       setFormMessage('Undangan baru berhasil dibuat.')
-      return true
+      return createdInvitation
     } catch (error) {
       setFormMessage(error instanceof Error ? error.message : 'Gagal membuat undangan')
-      return false
+      return null
     } finally {
       setIsCreating(false)
     }
@@ -508,7 +508,7 @@ function DashboardPage({
   templates,
   source,
 }: {
-  createInvitation: (input: CreateInvitationInput) => Promise<boolean>
+  createInvitation: (input: CreateInvitationInput) => Promise<Invitation | null>
   formMessage: string
   invitations: Invitation[]
   isCreating: boolean
@@ -517,6 +517,8 @@ function DashboardPage({
 }) {
   const totalRSVP = invitations.reduce((sum, item) => sum + item.rsvpCount, 0)
   const firstTemplateSlug = templates[0]?.slug ?? 'adat-jawa'
+  const [copiedSlug, setCopiedSlug] = useState('')
+  const [createdLink, setCreatedLink] = useState('')
   const [form, setForm] = useState<CreateInvitationInput>({
     couple: '',
     eventDate: '',
@@ -526,11 +528,12 @@ function DashboardPage({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await createInvitation({
+    const createdInvitation = await createInvitation({
       ...form,
       templateSlug: form.templateSlug || firstTemplateSlug,
     })
-    if (ok) {
+    if (createdInvitation) {
+      setCreatedLink(invitationURL(createdInvitation.slug))
       setForm({
         couple: '',
         eventDate: '',
@@ -538,6 +541,13 @@ function DashboardPage({
         templateSlug: firstTemplateSlug,
       })
     }
+  }
+
+  async function copyInvitationLink(slug: string) {
+    const link = invitationURL(slug)
+    await navigator.clipboard?.writeText(link)
+    setCopiedSlug(slug)
+    window.setTimeout(() => setCopiedSlug(''), 1600)
   }
 
   return (
@@ -626,6 +636,11 @@ function DashboardPage({
               {isCreating ? 'Menyimpan...' : 'Simpan Undangan'}
             </button>
             {formMessage ? <p className="form-message">{formMessage}</p> : null}
+            {createdLink ? (
+              <p className="created-link">
+                Link undangan: <a href={createdLink}>{createdLink}</a>
+              </p>
+            ) : null}
           </form>
         </section>
 
@@ -646,6 +661,9 @@ function DashboardPage({
                 <div className="row-actions">
                   <a href={`/dashboard/edit/${item.slug}`}>Edit</a>
                   <a href={`/u/${item.slug}`}>Preview</a>
+                  <button type="button" onClick={() => void copyInvitationLink(item.slug)}>
+                    {copiedSlug === item.slug ? 'Tersalin' : 'Salin Link'}
+                  </button>
                 </div>
               </article>
             ))}
@@ -758,7 +776,7 @@ function EditorPage({
                 <article className="rsvp-row" key={item.id}>
                   <div>
                     <strong>{item.name}</strong>
-                    <span>{readableStatus(item.status)} · {item.guests} tamu</span>
+                    <span>{readableStatus(item.status)} - {item.guests} tamu</span>
                   </div>
                   <p>{item.message || 'Tanpa ucapan'}</p>
                 </article>
@@ -896,6 +914,10 @@ function Nav() {
       </a>
     </nav>
   )
+}
+
+function invitationURL(slug: string) {
+  return `${window.location.origin}/u/${slug}`
 }
 
 export default App
