@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 180" role="img" aria-label="Ornamen CintaBuku Adat Jawa">
+  <defs>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#c78b45"/>
+      <stop offset="0.5" stop-color="#f1d18b"/>
+      <stop offset="1" stop-color="#9a6228"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="180" fill="none"/>
+  <path d="M450 24c42 0 78 34 78 75s-36 75-78 75-78-34-78-75 36-75 78-75Z" fill="none" stroke="url(#gold)" stroke-width="8"/>
+  <path d="M450 48c26 0 48 22 48 50s-22 50-48 50-48-22-48-50 22-50 48-50Z" fill="none" stroke="#064346" stroke-width="5"/>
+  <path d="M450 68c13 19 27 30 48 32-21 2-35 13-48 32-13-19-27-30-48-32 21-2 35-13 48-32Z" fill="url(#gold)"/>
+  <path d="M66 104c76-72 178-72 254 0M580 104c76-72 178-72 254 0" fill="none" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M104 102c34-24 68-24 102 0M694 102c34-24 68-24 102 0" fill="none" stroke="#064346" stroke-width="5" stroke-linecap="round"/>
+  <path d="M36 106c35 0 53-18 70-48 17 30 35 48 70 48-35 0-53 18-70 48-17-30-35-48-70-48ZM724 106c35 0 53-18 70-48 17 30 35 48 70 48-35 0-53 18-70 48-17-30-35-48-70-48Z" fill="rgba(6,67,70,.12)" stroke="url(#gold)" stroke-width="5"/>
+</svg>

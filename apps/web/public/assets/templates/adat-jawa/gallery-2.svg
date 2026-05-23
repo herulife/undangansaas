@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-label="Galeri undangan CintaBuku 2">
+  <rect width="900" height="1100" rx="80" fill="#f5eee1"/>
+  <path d="M96 136h708v828H96z" fill="#fff" stroke="#c78b45" stroke-width="18"/>
+  <path d="M170 820c130-180 250-220 360-120s190 82 290-30v294H170V820Z" fill="#064346" opacity=".9"/>
+  <circle cx="292" cy="344" r="92" fill="#e7be7c"/>
+  <circle cx="602" cy="344" r="92" fill="#e7be7c"/>
+  <text x="450" y="592" text-anchor="middle" font-family="Georgia, serif" font-size="86" fill="#064346">Doa Restu</text>
+</svg>

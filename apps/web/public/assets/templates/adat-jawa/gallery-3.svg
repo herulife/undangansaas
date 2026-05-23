@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-label="Galeri undangan CintaBuku 3">
+  <rect width="900" height="1100" rx="80" fill="#ead7bd"/>
+  <path d="M90 90h720v920H90z" fill="#0b4a48"/>
+  <path d="M160 180h580v740H160z" fill="#fff7e8" opacity=".92"/>
+  <path d="M450 260c52 90 112 146 218 154-106 8-166 64-218 154-52-90-112-146-218-154 106-8 166-64 218-154Z" fill="#c78b45" opacity=".72"/>
+  <text x="450" y="760" text-anchor="middle" font-family="Georgia, serif" font-size="82" fill="#064346">Bahagia</text>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-label="Ilustrasi mempelai CintaBuku">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0a4f4b"/>
+      <stop offset="1" stop-color="#f0d4a4"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#b67832"/>
+      <stop offset=".5" stop-color="#f1d18b"/>
+      <stop offset="1" stop-color="#8a551e"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="1100" rx="90" fill="url(#bg)"/>
+  <circle cx="450" cy="276" r="158" fill="#fff7e8" opacity=".22"/>
+  <path d="M180 872c36-198 150-302 270-302s234 104 270 302v86H180v-86Z" fill="#fff7e8"/>
+  <path d="M210 906c44-160 132-244 240-244s196 84 240 244" fill="none" stroke="#064346" stroke-width="18" opacity=".32"/>
+  <circle cx="345" cy="420" r="82" fill="#f2d2b7"/>
+  <circle cx="555" cy="420" r="82" fill="#f2d2b7"/>
+  <path d="M276 390c28-80 110-80 138 0-42-18-92-18-138 0ZM486 390c28-80 110-80 138 0-42-18-92-18-138 0Z" fill="#1e1a16"/>
+  <path d="M245 616c54-96 130-140 205-140s151 44 205 140" fill="#064346"/>
+  <path d="M244 616h412v236H244z" fill="#064346"/>
+  <path d="M310 616c40 38 86 58 140 58s100-20 140-58" fill="none" stroke="url(#gold)" stroke-width="16"/>
+  <path d="M252 836h396" stroke="url(#gold)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M450 112c24 42 52 68 102 72-50 4-78 30-102 72-24-42-52-68-102-72 50-4 78-30 102-72Z" fill="url(#gold)"/>
+  <text x="450" y="1010" text-anchor="middle" font-family="Georgia, serif" font-size="86" fill="#064346">J &amp; C</text>
+</svg>

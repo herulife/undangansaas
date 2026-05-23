@@ -903,7 +903,11 @@ function PublicInvitationPage({
 
       <section className="clone-page">
         <div className="clone-photo-card">
-          <div className="clone-photo">J & C</div>
+          <img
+            alt={`Ilustrasi mempelai ${invitation.couple}`}
+            className="clone-photo"
+            src="/assets/templates/adat-jawa/couple-portrait.svg"
+          />
           <p className="clone-kicker">Assalamu'alaikum Warahmatullahi Wabarakatuh</p>
           <h2>{invitation.couple}</h2>
           <p>
@@ -957,7 +961,12 @@ function PublicInvitationPage({
 
         <div className="clone-gallery" id="galeri">
           {[1, 2, 3].map((item) => (
-            <div key={item}>Galeri {item}</div>
+            <div key={item}>
+              <img
+                alt={`Galeri pernikahan ${item}`}
+                src={`/assets/templates/adat-jawa/gallery-${item}.svg`}
+              />
+            </div>
           ))}
         </div>
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Pattern batik CintaBuku">
+  <rect width="240" height="240" fill="#f5eee1"/>
+  <g fill="none" stroke="#064346" stroke-opacity=".16" stroke-width="4">
+    <path d="M0 120C40 80 80 80 120 120s80 40 120 0"/>
+    <path d="M0 0c40 40 80 40 120 0s80-40 120 0M0 240c40-40 80-40 120 0s80 40 120 0"/>
+    <circle cx="60" cy="60" r="34"/>
+    <circle cx="180" cy="60" r="34"/>
+    <circle cx="60" cy="180" r="34"/>
+    <circle cx="180" cy="180" r="34"/>
+  </g>
+  <g fill="#c78b45" fill-opacity=".18">
+    <path d="M120 48c16 24 32 40 62 42-30 2-46 18-62 42-16-24-32-40-62-42 30-2 46-18 62-42Z"/>
+    <path d="M120 132c16 24 32 40 62 42-30 2-46 18-62 42-16-24-32-40-62-42 30-2 46-18 62-42Z"/>
+  </g>
+</svg>

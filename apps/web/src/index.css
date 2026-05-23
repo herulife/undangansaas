@@ -892,9 +892,12 @@ h1 {
   --clone-primary: #064346;
   --clone-cream: #f5eee1;
   background:
+    url("/assets/templates/adat-jawa/batik-pattern.svg"),
     radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.72), transparent 18%),
     radial-gradient(circle at 80% 0%, rgba(6, 67, 70, 0.12), transparent 24%),
     linear-gradient(180deg, #fbf5e8, var(--clone-cream));
+  background-attachment: fixed;
+  background-size: 240px 240px, auto, auto, auto;
   color: #251909;
   min-height: 100vh;
   text-shadow: 1px 1px 7px rgba(255, 255, 255, 0.35);
@@ -972,6 +975,23 @@ h1 {
   text-align: center;
   width: 100%;
   z-index: 2;
+}
+
+.clone-cover-card::before,
+.clone-photo-card::before,
+.clone-frame::after,
+.map-card::before,
+.guestbook-card::before,
+.gift-card::before,
+.closing-card::before {
+  background: url("/assets/templates/adat-jawa/ornament-top.svg") center / contain no-repeat;
+  content: "";
+  display: block;
+  height: 58px;
+  margin: -10px auto 10px;
+  max-width: 430px;
+  opacity: 0.9;
+  width: 100%;
 }
 
 .clone-kicker {
@@ -1093,19 +1113,11 @@ h1 {
 }
 
 .clone-photo {
-  align-items: center;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.6), transparent 25%),
-    linear-gradient(145deg, #0b5552, #062f31);
   border: 8px solid #fff;
   border-radius: 29px;
   box-shadow: 2px 2px 10px rgba(52, 47, 38, 0.2);
-  color: #f5eee1;
-  display: inline-flex;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 42px;
   height: 156px;
-  justify-content: center;
+  object-fit: cover;
   margin-bottom: 20px;
   width: 156px;
 }
@@ -1183,17 +1195,19 @@ h1 {
 }
 
 .clone-gallery div {
-  align-items: end;
-  background: linear-gradient(145deg, #0b5552, #d9c6a4);
+  background: #fff;
   border: 6px solid #fff;
   border-radius: 17px;
   box-shadow: 2px 2px 7px rgba(75, 68, 53, 0.2);
-  color: #fff;
-  display: flex;
-  font-size: 12px;
-  font-weight: 900;
+  overflow: hidden;
   min-height: 130px;
-  padding: 10px;
+}
+
+.clone-gallery img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .map-placeholder {

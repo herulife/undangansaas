@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-label="Galeri undangan CintaBuku 1">
+  <rect width="900" height="1100" rx="80" fill="#064346"/>
+  <path d="M0 780c170-180 330-230 480-150s260 70 420-120v590H0V780Z" fill="#f3dfbd"/>
+  <circle cx="650" cy="260" r="140" fill="#f1d18b" opacity=".9"/>
+  <path d="M180 590c80-120 170-180 270-180s190 60 270 180" fill="none" stroke="#fff7e8" stroke-width="32" stroke-linecap="round"/>
+  <text x="450" y="930" text-anchor="middle" font-family="Georgia, serif" font-size="84" fill="#064346">Momen Akad</text>
+</svg>
