@@ -777,7 +777,7 @@ function AIAssetGenerator({
           <p className="eyebrow">AI asset studio</p>
           <h2>Generate foto & ornamen template</h2>
         </div>
-        <span>Google/OpenAI Images</span>
+        <span>NVIDIA/Google/OpenAI</span>
       </div>
 
       <form className="ai-generator-form" onSubmit={handleSubmit}>
