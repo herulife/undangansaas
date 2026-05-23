@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -68,6 +73,18 @@ type rsvp struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+type generateImageRequest struct {
+	Prompt string `json:"prompt"`
+	Style  string `json:"style"`
+	Size   string `json:"size"`
+}
+
+type generateImageResponse struct {
+	FileName string `json:"fileName"`
+	URL      string `json:"url"`
+	Prompt   string `json:"prompt"`
+}
+
 func main() {
 	ctx := context.Background()
 	port := env("APP_PORT", "8088")
@@ -107,6 +124,8 @@ func main() {
 		r.Patch("/invitations/{slug}", api.updateInvitation)
 		r.Post("/invitations/{slug}/rsvp", api.createRSVP)
 		r.Get("/invitations/{slug}/rsvps", api.listRSVPs)
+		r.Post("/ai/images", api.generateImage)
+		r.Handle("/uploads/*", http.StripPrefix("/api/uploads/", http.FileServer(http.Dir(uploadDir()))))
 	})
 
 	log.Printf("CintaBuku API listening on :%s", port)
@@ -414,6 +433,132 @@ func (a *app) listRSVPs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, items)
 }
 
+func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
+	apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	if apiKey == "" {
+		writeError(w, http.StatusServiceUnavailable, errors.New("OPENAI_API_KEY is not configured"))
+		return
+	}
+
+	var payload generateImageRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
+		return
+	}
+
+	payload.Prompt = strings.TrimSpace(payload.Prompt)
+	payload.Style = strings.TrimSpace(payload.Style)
+	payload.Size = strings.TrimSpace(payload.Size)
+	if payload.Prompt == "" {
+		writeError(w, http.StatusBadRequest, errors.New("prompt is required"))
+		return
+	}
+	if payload.Size == "" {
+		payload.Size = "1024x1024"
+	}
+
+	finalPrompt := payload.Prompt
+	if payload.Style != "" {
+		finalPrompt = fmt.Sprintf("%s. Style: %s", payload.Prompt, payload.Style)
+	}
+
+	imageBytes, err := requestOpenAIImage(r.Context(), apiKey, finalPrompt, payload.Size)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+
+	dir := filepath.Join(uploadDir(), "ai")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	fileName := fmt.Sprintf("ai-%d.png", time.Now().UnixNano())
+	filePath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(filePath, imageBytes, 0o644); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, generateImageResponse{
+		FileName: fileName,
+		URL:      "/api/uploads/ai/" + fileName,
+		Prompt:   finalPrompt,
+	})
+}
+
+func requestOpenAIImage(ctx context.Context, apiKey string, prompt string, size string) ([]byte, error) {
+	body := map[string]string{
+		"model":  env("OPENAI_IMAGE_MODEL", "gpt-image-1"),
+		"prompt": prompt,
+		"size":   size,
+	}
+	rawBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/images/generations", bytes.NewReader(rawBody))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 90 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	rawResponse, err := io.ReadAll(io.LimitReader(response.Body, 12<<20))
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("image generation failed: %s", strings.TrimSpace(string(rawResponse)))
+	}
+
+	var result struct {
+		Data []struct {
+			B64JSON string `json:"b64_json"`
+			URL     string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rawResponse, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Data) == 0 {
+		return nil, errors.New("image generation returned no data")
+	}
+	if result.Data[0].B64JSON != "" {
+		return base64.StdEncoding.DecodeString(result.Data[0].B64JSON)
+	}
+	if result.Data[0].URL != "" {
+		return downloadGeneratedImage(ctx, result.Data[0].URL)
+	}
+
+	return nil, errors.New("image generation returned unsupported data")
+}
+
+func downloadGeneratedImage(ctx context.Context, imageURL string) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("download generated image failed with status %d", response.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(response.Body, 12<<20))
+}
+
 func migrate(ctx context.Context, db *pgxpool.Pool) error {
 	_, err := db.Exec(ctx, `
 		create extension if not exists pgcrypto;
@@ -507,6 +652,10 @@ func normalizeSlug(value string) string {
 		}
 	}
 	return strings.Trim(builder.String(), "-")
+}
+
+func uploadDir() string {
+	return env("GENERATED_ASSET_DIR", "/app/uploads")
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

@@ -456,6 +456,9 @@ h1 {
 
 .invite-form input,
 .invite-form select,
+.ai-generator-form input,
+.ai-generator-form select,
+.ai-generator-form textarea,
 .rsvp-form input,
 .rsvp-form select,
 .rsvp-form textarea {
@@ -470,6 +473,12 @@ h1 {
 
 .rsvp-form textarea {
   min-height: 112px;
+  padding-top: 14px;
+  resize: vertical;
+}
+
+.ai-generator-form textarea {
+  min-height: 124px;
   padding-top: 14px;
   resize: vertical;
 }
@@ -713,6 +722,88 @@ h1 {
 
 .editor-form {
   grid-template-columns: repeat(3, minmax(0, 1fr)) 180px;
+}
+
+.ai-generator-card {
+  background:
+    radial-gradient(circle at 82% 10%, rgba(216, 163, 93, 0.24), transparent 28%),
+    linear-gradient(145deg, #fffaf2, #f0e1c9);
+}
+
+.ai-generator-heading {
+  align-items: start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.ai-generator-heading span {
+  background: #2a1a11;
+  border-radius: 999px;
+  color: #f8ead7;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 9px 13px;
+}
+
+.ai-generator-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 180px 180px;
+  margin-top: 22px;
+}
+
+.ai-generator-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-generator-form button {
+  grid-column: 1 / -1;
+  min-height: 48px;
+}
+
+.ai-result-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.ai-result-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.ai-result-card img {
+  aspect-ratio: 1;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.ai-result-card div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.ai-result-card strong,
+.ai-result-card a {
+  overflow-wrap: anywhere;
+}
+
+.ai-result-card a {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 950;
 }
 
 .adat-jawa-theme {
@@ -1337,6 +1428,15 @@ h1 {
   }
 
   .invite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-generator-heading {
+    flex-direction: column;
+  }
+
+  .ai-generator-form,
+  .ai-result-grid {
     grid-template-columns: 1fr;
   }
 

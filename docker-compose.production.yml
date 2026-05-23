@@ -26,9 +26,14 @@ services:
       APP_PORT: "8088"
       DATABASE_URL: postgres://${POSTGRES_USER:-undangan_user}:${POSTGRES_PASSWORD:-change-me}@undangansaas-db:5432/${POSTGRES_DB:-undangan}?sslmode=disable
       WEB_ORIGIN: ${WEB_ORIGIN:-https://cintabuku.site}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-gpt-image-1}
+      GENERATED_ASSET_DIR: /app/uploads
     depends_on:
       undangansaas-db:
         condition: service_healthy
+    volumes:
+      - undangansaas_uploads:/app/uploads
     expose:
       - "8088"
     networks:
@@ -53,3 +58,4 @@ networks:
 
 volumes:
   undangansaas_db:
+  undangansaas_uploads:
