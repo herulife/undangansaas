@@ -57,6 +57,7 @@ type AIImageInput = {
 
 type AIImageResult = {
   fileName: string
+  provider: string
   url: string
   prompt: string
 }
@@ -776,7 +777,7 @@ function AIAssetGenerator({
           <p className="eyebrow">AI asset studio</p>
           <h2>Generate foto & ornamen template</h2>
         </div>
-        <span>OpenAI Images</span>
+        <span>Google/OpenAI Images</span>
       </div>
 
       <form className="ai-generator-form" onSubmit={handleSubmit}>

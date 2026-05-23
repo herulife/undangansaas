@@ -81,6 +81,7 @@ type generateImageRequest struct {
 
 type generateImageResponse struct {
 	FileName string `json:"fileName"`
+	Provider string `json:"provider"`
 	URL      string `json:"url"`
 	Prompt   string `json:"prompt"`
 }
@@ -434,12 +435,6 @@ func (a *app) listRSVPs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
-	apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
-	if apiKey == "" {
-		writeError(w, http.StatusServiceUnavailable, errors.New("OPENAI_API_KEY is not configured"))
-		return
-	}
-
 	var payload generateImageRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
@@ -462,7 +457,8 @@ func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
 		finalPrompt = fmt.Sprintf("%s. Style: %s", payload.Prompt, payload.Style)
 	}
 
-	imageBytes, err := requestOpenAIImage(r.Context(), apiKey, finalPrompt, payload.Size)
+	provider := strings.ToLower(strings.TrimSpace(env("AI_IMAGE_PROVIDER", "openai")))
+	imageBytes, err := requestGeneratedImage(r.Context(), provider, finalPrompt, payload.Size)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
@@ -483,9 +479,29 @@ func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, generateImageResponse{
 		FileName: fileName,
+		Provider: provider,
 		URL:      "/api/uploads/ai/" + fileName,
 		Prompt:   finalPrompt,
 	})
+}
+
+func requestGeneratedImage(ctx context.Context, provider string, prompt string, size string) ([]byte, error) {
+	switch provider {
+	case "google", "gemini", "imagen":
+		apiKey := strings.TrimSpace(os.Getenv("GOOGLE_API_KEY"))
+		if apiKey == "" {
+			return nil, errors.New("GOOGLE_API_KEY is not configured")
+		}
+		return requestGoogleImage(ctx, apiKey, prompt, size)
+	case "openai", "":
+		apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+		if apiKey == "" {
+			return nil, errors.New("OPENAI_API_KEY is not configured")
+		}
+		return requestOpenAIImage(ctx, apiKey, prompt, size)
+	default:
+		return nil, fmt.Errorf("unsupported AI_IMAGE_PROVIDER: %s", provider)
+	}
 }
 
 func requestOpenAIImage(ctx context.Context, apiKey string, prompt string, size string) ([]byte, error) {
@@ -541,6 +557,70 @@ func requestOpenAIImage(ctx context.Context, apiKey string, prompt string, size 
 	}
 
 	return nil, errors.New("image generation returned unsupported data")
+}
+
+func requestGoogleImage(ctx context.Context, apiKey string, prompt string, size string) ([]byte, error) {
+	body := map[string]any{
+		"instances": []map[string]string{
+			{"prompt": prompt},
+		},
+		"parameters": map[string]any{
+			"sampleCount": 1,
+			"aspectRatio": googleAspectRatio(size),
+		},
+	}
+	rawBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	model := env("GOOGLE_IMAGE_MODEL", "imagen-4.0-generate-001")
+	endpoint := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:predict?key=%s", model, apiKey)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(rawBody))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 90 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	rawResponse, err := io.ReadAll(io.LimitReader(response.Body, 12<<20))
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("google image generation failed: %s", strings.TrimSpace(string(rawResponse)))
+	}
+
+	var result struct {
+		Predictions []struct {
+			BytesBase64Encoded string `json:"bytesBase64Encoded"`
+			MimeType           string `json:"mimeType"`
+		} `json:"predictions"`
+	}
+	if err := json.Unmarshal(rawResponse, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Predictions) == 0 || result.Predictions[0].BytesBase64Encoded == "" {
+		return nil, errors.New("google image generation returned no image data")
+	}
+	return base64.StdEncoding.DecodeString(result.Predictions[0].BytesBase64Encoded)
+}
+
+func googleAspectRatio(size string) string {
+	switch size {
+	case "1024x1536":
+		return "3:4"
+	case "1536x1024":
+		return "4:3"
+	default:
+		return "1:1"
+	}
 }
 
 func downloadGeneratedImage(ctx context.Context, imageURL string) ([]byte, error) {
