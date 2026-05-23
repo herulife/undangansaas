@@ -812,6 +812,7 @@ function PublicInvitationPage({
     name: '',
     status: 'attending',
   })
+  const [musicOn, setMusicOn] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -874,6 +875,15 @@ function PublicInvitationPage({
 
   return (
     <main className="clone-invite-shell">
+      <button
+        aria-label={musicOn ? 'Matikan musik' : 'Nyalakan musik'}
+        className={`music-toggle ${musicOn ? 'is-playing' : ''}`}
+        onClick={() => setMusicOn((current) => !current)}
+        type="button"
+      >
+        {musicOn ? '||' : '♪'}
+      </button>
+
       <section className="clone-cover min-screen" id="cover">
         <div className="cover-panel cover-panel-left" />
         <div className="cover-panel cover-panel-right" />
@@ -891,7 +901,7 @@ function PublicInvitationPage({
         </div>
       </section>
 
-      <section className="clone-page" id="detail-acara">
+      <section className="clone-page">
         <div className="clone-photo-card">
           <div className="clone-photo">J & C</div>
           <p className="clone-kicker">Assalamu'alaikum Warahmatullahi Wabarakatuh</p>
@@ -900,6 +910,19 @@ function PublicInvitationPage({
             Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud
             menyelenggarakan pernikahan putra-putri kami.
           </p>
+        </div>
+
+        <div className="couple-grid" id="mempelai">
+          <article>
+            <span>Mempelai Pria</span>
+            <h2>Joko Suhanto</h2>
+            <p>Putra dari Bapak dan Ibu keluarga besar mempelai pria.</p>
+          </article>
+          <article>
+            <span>Mempelai Wanita</span>
+            <h2>Cikita</h2>
+            <p>Putri dari Bapak dan Ibu keluarga besar mempelai wanita.</p>
+          </article>
         </div>
 
         <div className="clone-countdown">
@@ -911,7 +934,7 @@ function PublicInvitationPage({
           ))}
         </div>
 
-        <div className="clone-frame">
+        <div className="clone-frame" id="detail-acara">
           <span>Akad Nikah</span>
           <h2>Sabtu, {eventDate}</h2>
           <p>08.00 WIB sampai selesai</p>
@@ -923,9 +946,34 @@ function PublicInvitationPage({
           <p>Detail lokasi dan maps akan tersambung ke editor.</p>
         </div>
 
-        <div className="clone-gallery">
+        <div className="map-card" id="lokasi">
+          <span>Lokasi</span>
+          <h2>Petunjuk Arah</h2>
+          <div className="map-placeholder">Maps Embed</div>
+          <a className="clone-open-button" href="https://maps.google.com" rel="noreferrer" target="_blank">
+            Buka Google Maps
+          </a>
+        </div>
+
+        <div className="clone-gallery" id="galeri">
           {[1, 2, 3].map((item) => (
             <div key={item}>Galeri {item}</div>
+          ))}
+        </div>
+
+        <div className="story-timeline" id="cerita">
+          {[
+            ['Awal Bertemu', 'Pertemuan sederhana yang menjadi awal cerita panjang.'],
+            ['Lamaran', 'Keluarga besar dipertemukan dalam suasana hangat dan penuh doa.'],
+            ['Hari Bahagia', 'Dengan izin Allah, kami melangkah menuju ibadah pernikahan.'],
+          ].map(([title, text]) => (
+            <article key={title}>
+              <span />
+              <div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </div>
+            </article>
           ))}
         </div>
 
@@ -936,6 +984,35 @@ function PublicInvitationPage({
           onSubmit={handleSubmit}
           rsvpMessage={rsvpMessage}
         />
+
+        <div className="guestbook-card">
+          <span>Ucapan & Doa</span>
+          <h2>Buku Tamu</h2>
+          <article>
+            <strong>Keluarga Besar</strong>
+            <p>Semoga menjadi keluarga sakinah, mawaddah, warahmah.</p>
+          </article>
+          <article>
+            <strong>Sahabat</strong>
+            <p>Selamat menempuh hidup baru, semoga bahagia selalu.</p>
+          </article>
+        </div>
+
+        <div className="gift-card" id="gift">
+          <span>Amplop Digital</span>
+          <h2>Tanda Kasih</h2>
+          <p>Fitur rekening, QR, dan kado fisik akan tersambung ke editor paket premium.</p>
+          <button className="clone-open-button" type="button">Salin Rekening</button>
+        </div>
+
+        <div className="closing-card">
+          <p>
+            Merupakan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan
+            hadir dan memberikan doa restu.
+          </p>
+          <h2>{invitation.couple}</h2>
+        </div>
+
         <a className="credit" href="/">
           Dibuat dengan CintaBuku
         </a>
@@ -1011,11 +1088,11 @@ function PublicRSVPForm({
 function InviteBottomNav() {
   return (
     <nav className="invite-bottom-nav">
-      {['Cover', 'Acara', 'RSVP'].map((item) => (
-        <a href={item === 'Cover' ? '#' : item === 'RSVP' ? '#rsvp' : '#detail-acara'} key={item}>
-          {item}
-        </a>
-      ))}
+      <a href="#cover">Cover</a>
+      <a href="#mempelai">Mempelai</a>
+      <a href="#detail-acara">Acara</a>
+      <a href="#galeri">Galeri</a>
+      <a href="#rsvp">RSVP</a>
     </nav>
   )
 }
