@@ -408,10 +408,86 @@ h1 {
   margin-top: 22px;
 }
 
+.data-source {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 14px 4px 0;
+}
+
 .table-card {
   border-radius: 32px;
   margin-top: 22px;
   padding: 24px;
+}
+
+.form-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  box-shadow: 0 24px 70px rgba(73, 42, 20, 0.08);
+  margin-top: 22px;
+  padding: 24px;
+}
+
+.form-card h2 {
+  font-size: 28px;
+  margin: 8px 0 0;
+}
+
+.invite-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.invite-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.invite-form input,
+.invite-form select,
+.rsvp-form input,
+.rsvp-form select,
+.rsvp-form textarea {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--foreground);
+  font: inherit;
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.rsvp-form textarea {
+  min-height: 112px;
+  padding-top: 14px;
+  resize: vertical;
+}
+
+.invite-form button {
+  align-self: end;
+  min-height: 48px;
+}
+
+.invite-form button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.form-message {
+  color: var(--accent-dark);
+  font-size: 14px;
+  font-weight: 800;
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .table-head {
@@ -421,7 +497,8 @@ h1 {
 }
 
 .table-head a,
-.invite-row a {
+.invite-row a,
+.row-actions a {
   font-weight: 900;
 }
 
@@ -440,6 +517,11 @@ h1 {
   gap: 16px;
   grid-template-columns: 1fr 1fr 120px 100px;
   padding: 18px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .invite-row:last-child {
@@ -517,10 +599,95 @@ h1 {
   margin: 10px 0 0;
 }
 
+.rsvp-form {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  box-shadow: 0 24px 70px rgba(73, 42, 20, 0.1);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 38px;
+  padding: 24px;
+  text-align: left;
+  width: 100%;
+}
+
+.rsvp-form h2 {
+  font-size: 24px;
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+}
+
+.rsvp-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wide-field,
+.rsvp-form button,
+.rsvp-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.rsvp-list {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  margin-top: 22px;
+  overflow: hidden;
+}
+
+.rsvp-row {
+  align-items: start;
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 220px 1fr;
+  padding: 18px;
+}
+
+.rsvp-row:last-child {
+  border-bottom: 0;
+}
+
+.rsvp-row span,
+.rsvp-row p,
+.empty-state,
+.table-head span {
+  color: var(--muted);
+}
+
+.rsvp-row span {
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.rsvp-row p,
+.empty-state {
+  line-height: 1.6;
+  margin: 0;
+}
+
 .credit {
   font-size: 14px;
   font-weight: 950;
   margin-top: 38px;
+}
+
+.editor-card {
+  margin-top: 22px;
+}
+
+.editor-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 180px;
 }
 
 @media (max-width: 860px) {
@@ -546,6 +713,19 @@ h1 {
   }
 
   .invite-row {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .rsvp-form,
+  .rsvp-row {
     grid-template-columns: 1fr;
   }
 }

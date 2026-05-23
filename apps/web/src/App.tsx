@@ -1,49 +1,90 @@
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+
 type Template = {
   id: string
   name: string
   slug: string
-  style: string
-  price: string
-  accent: string
+  category: string
+  createdAt?: string
 }
 
 type Invitation = {
+  id?: string
   slug: string
   couple: string
   template: string
   eventDate: string
-  status: 'Draft' | 'Published'
+  status: string
   rsvpCount: number
+  createdAt?: string
 }
 
-const templates: Template[] = [
+type CreateInvitationInput = {
+  slug: string
+  couple: string
+  templateSlug: string
+  eventDate: string
+}
+
+type UpdateInvitationInput = {
+  couple: string
+  eventDate: string
+  status: string
+}
+
+type RSVP = {
+  id: string
+  name: string
+  message: string
+  status: string
+  guests: number
+  createdAt?: string
+}
+
+type RSVPInput = {
+  name: string
+  message: string
+  status: string
+  guests: number
+}
+
+const templateMeta: Record<string, { style: string; accent: string }> = {
+  'adat-jawa': {
+    style: 'Tradisional, batik, krem emas',
+    accent: '#9b5f2e',
+  },
+  'modern-editorial': {
+    style: 'Clean, foto besar, tipografi elegan',
+    accent: '#334155',
+  },
+  'floral-garden': {
+    style: 'Bunga lembut, pastel, romantis',
+    accent: '#8a6f76',
+  },
+}
+
+const fallbackTemplates: Template[] = [
   {
     id: 'tmp-jawa-001',
     name: 'Adat Jawa Klasik',
     slug: 'adat-jawa',
-    style: 'Tradisional, batik, krem emas',
-    price: 'Premium',
-    accent: '#9b5f2e',
+    category: 'premium',
   },
   {
     id: 'tmp-modern-001',
     name: 'Modern Editorial',
     slug: 'modern-editorial',
-    style: 'Clean, foto besar, tipografi elegan',
-    price: 'Basic',
-    accent: '#334155',
+    category: 'basic',
   },
   {
     id: 'tmp-floral-001',
     name: 'Floral Soft Garden',
     slug: 'floral-garden',
-    style: 'Bunga lembut, pastel, romantis',
-    price: 'Premium',
-    accent: '#8a6f76',
+    category: 'premium',
   },
 ]
 
-const invitations: Invitation[] = [
+const fallbackInvitations: Invitation[] = [
   {
     slug: 'joko-cikita',
     couple: 'Joko & Cikita',
@@ -62,36 +103,298 @@ const invitations: Invitation[] = [
   },
 ]
 
-const stats = [
-  ['1.240+', 'undangan aktif'],
-  ['42 ms', 'target respons cache'],
-  ['Static', 'public output'],
-]
+const apiBase = import.meta.env.VITE_API_URL ?? (
+  import.meta.env.DEV ? 'http://localhost:8088' : ''
+)
 
-function getInvitation(slug: string) {
+function apiURL(path: string) {
+  return `${apiBase}${path}`
+}
+
+function useAPIData() {
+  const [templates, setTemplates] = useState<Template[]>(fallbackTemplates)
+  const [invitations, setInvitations] = useState<Invitation[]>(fallbackInvitations)
+  const [source, setSource] = useState<'api' | 'fallback'>('fallback')
+  const [isCreating, setIsCreating] = useState(false)
+  const [isSubmittingRSVP, setIsSubmittingRSVP] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [formMessage, setFormMessage] = useState('')
+  const [editorMessage, setEditorMessage] = useState('')
+  const [rsvpsBySlug, setRSVPsBySlug] = useState<Record<string, RSVP[]>>({})
+  const [rsvpMessage, setRSVPMessage] = useState('')
+
+  async function loadData(signal?: AbortSignal) {
+    try {
+      const [templateResponse, invitationResponse] = await Promise.all([
+        fetch(apiURL('/api/templates'), { signal }),
+        fetch(apiURL('/api/invitations'), { signal }),
+      ])
+
+      if (!templateResponse.ok || !invitationResponse.ok) {
+        throw new Error('API response was not ok')
+      }
+
+      const [templateData, invitationData] = await Promise.all([
+        templateResponse.json() as Promise<Template[]>,
+        invitationResponse.json() as Promise<Invitation[]>,
+      ])
+
+      setTemplates(templateData.length > 0 ? templateData : fallbackTemplates)
+      setInvitations(
+        invitationData.length > 0 ? invitationData : fallbackInvitations,
+      )
+      setSource('api')
+    } catch {
+      if (!signal?.aborted) {
+        setSource('fallback')
+      }
+    }
+  }
+
+  async function createInvitation(input: CreateInvitationInput) {
+    setIsCreating(true)
+    setFormMessage('')
+    try {
+      const response = await fetch(apiURL('/api/invitations'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(error?.error ?? 'Gagal membuat undangan')
+      }
+
+      const createdInvitation = await response.json() as Invitation
+      setInvitations((current) => [createdInvitation, ...current])
+      setSource('api')
+      setFormMessage('Undangan baru berhasil dibuat.')
+      return true
+    } catch (error) {
+      setFormMessage(error instanceof Error ? error.message : 'Gagal membuat undangan')
+      return false
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  async function updateInvitation(slug: string, input: UpdateInvitationInput) {
+    setIsUpdating(true)
+    setEditorMessage('')
+    try {
+      const response = await fetch(apiURL(`/api/invitations/${slug}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(error?.error ?? 'Gagal menyimpan perubahan')
+      }
+
+      const updatedInvitation = await response.json() as Invitation
+      setInvitations((current) =>
+        current.map((item) =>
+          item.slug === updatedInvitation.slug ? updatedInvitation : item,
+        ),
+      )
+      setSource('api')
+      setEditorMessage('Perubahan undangan berhasil disimpan.')
+      return true
+    } catch (error) {
+      setEditorMessage(error instanceof Error ? error.message : 'Gagal menyimpan perubahan')
+      return false
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  async function submitRSVP(slug: string, input: RSVPInput) {
+    setIsSubmittingRSVP(true)
+    setRSVPMessage('')
+    try {
+      const response = await fetch(apiURL(`/api/invitations/${slug}/rsvp`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(error?.error ?? 'Gagal mengirim RSVP')
+      }
+
+      const createdRSVP = await response.json() as RSVP
+      setRSVPsBySlug((current) => ({
+        ...current,
+        [slug]: [createdRSVP, ...(current[slug] ?? [])],
+      }))
+      setInvitations((current) =>
+        current.map((item) =>
+          item.slug === slug
+            ? { ...item, rsvpCount: item.rsvpCount + 1 }
+            : item,
+        ),
+      )
+      setRSVPMessage('Terima kasih, RSVP Anda sudah tersimpan.')
+      return true
+    } catch (error) {
+      setRSVPMessage(error instanceof Error ? error.message : 'Gagal mengirim RSVP')
+      return false
+    } finally {
+      setIsSubmittingRSVP(false)
+    }
+  }
+
+  const loadRSVPs = useCallback(async (slug: string) => {
+    try {
+      const response = await fetch(apiURL(`/api/invitations/${slug}/rsvps`))
+      if (!response.ok) {
+        throw new Error('API response was not ok')
+      }
+      const data = await response.json() as RSVP[]
+      setRSVPsBySlug((current) => ({ ...current, [slug]: data }))
+    } catch {
+      setRSVPsBySlug((current) => ({ ...current, [slug]: current[slug] ?? [] }))
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => {
+      void loadData(controller.signal)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [])
+
+  return {
+    createInvitation,
+    editorMessage,
+    formMessage,
+    invitations,
+    isCreating,
+    isSubmittingRSVP,
+    isUpdating,
+    loadRSVPs,
+    rsvpMessage,
+    rsvpsBySlug,
+    source,
+    submitRSVP,
+    templates,
+    updateInvitation,
+  }
+}
+
+function getInvitation(slug: string, invitations: Invitation[]) {
   return invitations.find((item) => item.slug === slug) ?? invitations[0]
+}
+
+function getTemplateStyle(template: Template) {
+  return (
+    templateMeta[template.slug] ?? {
+      style: `${titleCase(template.category)} template siap dikembangkan`,
+      accent: '#77865b',
+    }
+  )
+}
+
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function readableStatus(status: string) {
+  return titleCase(status.toLowerCase())
 }
 
 function App() {
   const pathname = window.location.pathname
+  const {
+    createInvitation,
+    editorMessage,
+    formMessage,
+    invitations,
+    isCreating,
+    isSubmittingRSVP,
+    isUpdating,
+    loadRSVPs,
+    rsvpMessage,
+    rsvpsBySlug,
+    source,
+    submitRSVP,
+    templates,
+    updateInvitation,
+  } = useAPIData()
+
+  if (pathname.startsWith('/dashboard/edit/')) {
+    const slug = pathname.split('/').filter(Boolean)[2] ?? ''
+    return (
+      <EditorPage
+        editorMessage={editorMessage}
+        invitation={getInvitation(slug, invitations)}
+        isUpdating={isUpdating}
+        loadRSVPs={loadRSVPs}
+        rsvps={rsvpsBySlug[slug] ?? []}
+        updateInvitation={updateInvitation}
+      />
+    )
+  }
 
   if (pathname.startsWith('/dashboard')) {
-    return <DashboardPage />
+    return (
+      <DashboardPage
+        createInvitation={createInvitation}
+        formMessage={formMessage}
+        invitations={invitations}
+        isCreating={isCreating}
+        source={source}
+        templates={templates}
+      />
+    )
   }
 
   if (pathname.startsWith('/templates')) {
-    return <TemplatesPage />
+    return <TemplatesPage templates={templates} />
   }
 
   if (pathname.startsWith('/u/')) {
     const slug = pathname.split('/').filter(Boolean)[1] ?? 'joko-cikita'
-    return <PublicInvitationPage invitation={getInvitation(slug)} />
+    return (
+      <PublicInvitationPage
+        invitation={getInvitation(slug, invitations)}
+        isSubmittingRSVP={isSubmittingRSVP}
+        rsvpMessage={rsvpMessage}
+        submitRSVP={submitRSVP}
+      />
+    )
   }
 
-  return <HomePage />
+  return <HomePage invitations={invitations} templates={templates} source={source} />
 }
 
-function HomePage() {
+function HomePage({
+  invitations,
+  templates,
+  source,
+}: {
+  invitations: Invitation[]
+  templates: Template[]
+  source: 'api' | 'fallback'
+}) {
+  const stats = useMemo(
+    () => [
+      [invitations.length.toLocaleString('id-ID'), 'undangan aktif'],
+      [templates.length.toLocaleString('id-ID'), 'template tersedia'],
+      [source === 'api' ? 'API' : 'Demo', 'sumber data'],
+    ],
+    [invitations.length, source, templates.length],
+  )
+
   return (
     <main className="paper-grain min-screen overflow-hidden">
       <Nav />
@@ -135,7 +438,7 @@ function HomePage() {
                     <h3>{item.couple}</h3>
                     <p>{item.template}</p>
                   </div>
-                  <span>{item.status}</span>
+                  <span>{readableStatus(item.status)}</span>
                 </article>
               ))}
             </div>
@@ -150,7 +453,7 @@ function HomePage() {
   )
 }
 
-function TemplatesPage() {
+function TemplatesPage({ templates }: { templates: Template[] }) {
   return (
     <main className="paper-grain min-screen">
       <Nav />
@@ -166,35 +469,76 @@ function TemplatesPage() {
         </div>
 
         <div className="template-grid">
-          {templates.map((template) => (
-            <article className="template-card" key={template.id}>
-              <div
-                className="template-art"
-                style={{
-                  background: `radial-gradient(circle at 50% 25%, ${template.accent}40, transparent 34%), linear-gradient(145deg, #fff8ec, #ead7bd)`,
-                }}
-              />
-              <div className="template-body">
-                <p>{template.price}</p>
-                <h2>{template.name}</h2>
-                <span>{template.style}</span>
-                <a
-                  className="button secondary"
-                  href={`/u/${template.slug === 'adat-jawa' ? 'joko-cikita' : 'demo-adat-jawa'}`}
-                >
-                  Preview
-                </a>
-              </div>
-            </article>
-          ))}
+          {templates.map((template) => {
+            const style = getTemplateStyle(template)
+
+            return (
+              <article className="template-card" key={template.id}>
+                <div
+                  className="template-art"
+                  style={{
+                    background: `radial-gradient(circle at 50% 25%, ${style.accent}40, transparent 34%), linear-gradient(145deg, #fff8ec, #ead7bd)`,
+                  }}
+                />
+                <div className="template-body">
+                  <p>{titleCase(template.category)}</p>
+                  <h2>{template.name}</h2>
+                  <span>{style.style}</span>
+                  <a
+                    className="button secondary"
+                    href={`/u/${template.slug === 'adat-jawa' ? 'joko-cikita' : 'demo-adat-jawa'}`}
+                  >
+                    Preview
+                  </a>
+                </div>
+              </article>
+            )
+          })}
         </div>
       </section>
     </main>
   )
 }
 
-function DashboardPage() {
+function DashboardPage({
+  createInvitation,
+  formMessage,
+  invitations,
+  isCreating,
+  templates,
+  source,
+}: {
+  createInvitation: (input: CreateInvitationInput) => Promise<boolean>
+  formMessage: string
+  invitations: Invitation[]
+  isCreating: boolean
+  templates: Template[]
+  source: 'api' | 'fallback'
+}) {
   const totalRSVP = invitations.reduce((sum, item) => sum + item.rsvpCount, 0)
+  const firstTemplateSlug = templates[0]?.slug ?? 'adat-jawa'
+  const [form, setForm] = useState<CreateInvitationInput>({
+    couple: '',
+    eventDate: '',
+    slug: '',
+    templateSlug: firstTemplateSlug,
+  })
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await createInvitation({
+      ...form,
+      templateSlug: form.templateSlug || firstTemplateSlug,
+    })
+    if (ok) {
+      setForm({
+        couple: '',
+        eventDate: '',
+        slug: '',
+        templateSlug: firstTemplateSlug,
+      })
+    }
+  }
 
   return (
     <main className="dashboard min-screen">
@@ -208,10 +552,13 @@ function DashboardPage() {
               publikasi.
             </p>
           </div>
-          <button className="button gold" type="button">
+          <a className="button gold" href="#create-invitation">
             Buat Undangan
-          </button>
+          </a>
         </header>
+        <p className="data-source">
+          Data dashboard: {source === 'api' ? 'tersambung ke API' : 'mode demo'}
+        </p>
 
         <section className="metric-grid">
           {[
@@ -225,6 +572,61 @@ function DashboardPage() {
               <strong>{value}</strong>
             </article>
           ))}
+        </section>
+
+        <section className="form-card" id="create-invitation">
+          <div>
+            <p className="eyebrow">Create invitation</p>
+            <h2>Buat undangan baru</h2>
+          </div>
+          <form className="invite-form" onSubmit={handleSubmit}>
+            <label>
+              Nama pasangan
+              <input
+                onChange={(event) => setForm({ ...form, couple: event.target.value })}
+                placeholder="Rama & Shinta"
+                required
+                type="text"
+                value={form.couple}
+              />
+            </label>
+            <label>
+              Slug URL
+              <input
+                onChange={(event) => setForm({ ...form, slug: event.target.value })}
+                placeholder="rama-shinta"
+                required
+                type="text"
+                value={form.slug}
+              />
+            </label>
+            <label>
+              Tanggal acara
+              <input
+                onChange={(event) => setForm({ ...form, eventDate: event.target.value })}
+                required
+                type="date"
+                value={form.eventDate}
+              />
+            </label>
+            <label>
+              Template
+              <select
+                onChange={(event) => setForm({ ...form, templateSlug: event.target.value })}
+                value={form.templateSlug || firstTemplateSlug}
+              >
+                {templates.map((template) => (
+                  <option key={template.id} value={template.slug}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="button primary" disabled={isCreating} type="submit">
+              {isCreating ? 'Menyimpan...' : 'Simpan Undangan'}
+            </button>
+            {formMessage ? <p className="form-message">{formMessage}</p> : null}
+          </form>
         </section>
 
         <section className="table-card">
@@ -241,7 +643,10 @@ function DashboardPage() {
                 </div>
                 <p>{item.template}</p>
                 <b>{item.rsvpCount} RSVP</b>
-                <a href={`/u/${item.slug}`}>Preview</a>
+                <div className="row-actions">
+                  <a href={`/dashboard/edit/${item.slug}`}>Edit</a>
+                  <a href={`/u/${item.slug}`}>Preview</a>
+                </div>
               </article>
             ))}
           </div>
@@ -251,10 +656,154 @@ function DashboardPage() {
   )
 }
 
-function PublicInvitationPage({ invitation }: { invitation: Invitation }) {
+function EditorPage({
+  editorMessage,
+  invitation,
+  isUpdating,
+  loadRSVPs,
+  rsvps,
+  updateInvitation,
+}: {
+  editorMessage: string
+  invitation: Invitation
+  isUpdating: boolean
+  loadRSVPs: (slug: string) => Promise<void>
+  rsvps: RSVP[]
+  updateInvitation: (slug: string, input: UpdateInvitationInput) => Promise<boolean>
+}) {
+  const [form, setForm] = useState<UpdateInvitationInput>({
+    couple: invitation.couple,
+    eventDate: invitation.eventDate,
+    status: invitation.status.toLowerCase(),
+  })
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await updateInvitation(invitation.slug, form)
+  }
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadRSVPs(invitation.slug)
+    }, 0)
+
+    return () => window.clearTimeout(timeout)
+  }, [invitation.slug, loadRSVPs])
+
+  return (
+    <main className="dashboard min-screen">
+      <section className="page-shell">
+        <header className="dashboard-hero">
+          <div>
+            <a href="/dashboard">CintaBuku.</a>
+            <h1>Edit Undangan</h1>
+            <p>Ubah data inti sebelum masuk ke builder section yang lebih lengkap.</p>
+          </div>
+          <a className="button gold" href={`/u/${invitation.slug}`}>
+            Preview
+          </a>
+        </header>
+
+        <section className="form-card editor-card">
+          <div>
+            <p className="eyebrow">/{invitation.slug}</p>
+            <h2>{invitation.couple}</h2>
+          </div>
+          <form className="invite-form editor-form" onSubmit={handleSubmit}>
+            <label>
+              Nama pasangan
+              <input
+                onChange={(event) => setForm({ ...form, couple: event.target.value })}
+                required
+                type="text"
+                value={form.couple}
+              />
+            </label>
+            <label>
+              Tanggal acara
+              <input
+                onChange={(event) => setForm({ ...form, eventDate: event.target.value })}
+                required
+                type="date"
+                value={form.eventDate}
+              />
+            </label>
+            <label>
+              Status
+              <select
+                onChange={(event) => setForm({ ...form, status: event.target.value })}
+                value={form.status}
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+            <button className="button primary" disabled={isUpdating} type="submit">
+              {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+            {editorMessage ? <p className="form-message">{editorMessage}</p> : null}
+          </form>
+        </section>
+
+        <section className="table-card">
+          <div className="table-head">
+            <h2>RSVP masuk</h2>
+            <span>{rsvps.length} respon</span>
+          </div>
+          <div className="rsvp-list">
+            {rsvps.length === 0 ? (
+              <p className="empty-state">Belum ada RSVP untuk undangan ini.</p>
+            ) : (
+              rsvps.map((item) => (
+                <article className="rsvp-row" key={item.id}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>{readableStatus(item.status)} · {item.guests} tamu</span>
+                  </div>
+                  <p>{item.message || 'Tanpa ucapan'}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </section>
+    </main>
+  )
+}
+
+function PublicInvitationPage({
+  invitation,
+  isSubmittingRSVP,
+  rsvpMessage,
+  submitRSVP,
+}: {
+  invitation: Invitation
+  isSubmittingRSVP: boolean
+  rsvpMessage: string
+  submitRSVP: (slug: string, input: RSVPInput) => Promise<boolean>
+}) {
   const eventDate = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'long',
   }).format(new Date(invitation.eventDate))
+  const [form, setForm] = useState<RSVPInput>({
+    guests: 1,
+    message: '',
+    name: '',
+    status: 'attending',
+  })
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitRSVP(invitation.slug, form)
+    if (ok) {
+      setForm({
+        guests: 1,
+        message: '',
+        name: '',
+        status: 'attending',
+      })
+    }
+  }
 
   return (
     <main className="paper-grain min-screen">
@@ -277,6 +826,52 @@ function PublicInvitationPage({ invitation }: { invitation: Invitation }) {
             </article>
           ))}
         </div>
+        <form className="rsvp-form" onSubmit={handleSubmit}>
+          <h2>Konfirmasi Kehadiran</h2>
+          <label>
+            Nama
+            <input
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              placeholder="Nama Anda"
+              required
+              type="text"
+              value={form.name}
+            />
+          </label>
+          <label>
+            Kehadiran
+            <select
+              onChange={(event) => setForm({ ...form, status: event.target.value })}
+              value={form.status}
+            >
+              <option value="attending">Hadir</option>
+              <option value="declined">Tidak hadir</option>
+            </select>
+          </label>
+          <label>
+            Jumlah tamu
+            <input
+              max="10"
+              min="1"
+              onChange={(event) => setForm({ ...form, guests: Number(event.target.value) })}
+              type="number"
+              value={form.guests}
+            />
+          </label>
+          <label className="wide-field">
+            Ucapan
+            <textarea
+              onChange={(event) => setForm({ ...form, message: event.target.value })}
+              placeholder="Tulis ucapan singkat"
+              rows={4}
+              value={form.message}
+            />
+          </label>
+          <button className="button primary" disabled={isSubmittingRSVP} type="submit">
+            {isSubmittingRSVP ? 'Mengirim...' : 'Kirim RSVP'}
+          </button>
+          {rsvpMessage ? <p className="form-message">{rsvpMessage}</p> : null}
+        </form>
         <a className="credit" href="/">
           Dibuat dengan CintaBuku
         </a>
