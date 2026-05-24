@@ -983,7 +983,7 @@ h1 {
   --clone-primary: #064346;
   --clone-cream: #f5eee1;
   background:
-    url("/assets/templates/adat-jawa/batik-pattern.svg"),
+    url("/assets/templates/adat-jawa/generated/background-pattern.webp"),
     radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.72), transparent 18%),
     radial-gradient(circle at 80% 0%, rgba(6, 67, 70, 0.12), transparent 24%),
     linear-gradient(180deg, #fbf5e8, var(--clone-cream));
@@ -1058,7 +1058,7 @@ h1 {
 .clone-cover-card {
   background:
     linear-gradient(rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.84)),
-    url("/assets/templates/adat-jawa/section-divider.svg") center 94% / 88% auto no-repeat;
+    url("/assets/templates/adat-jawa/generated/section-divider.webp") center 94% / 88% auto no-repeat;
   border: 1px solid rgba(6, 67, 70, 0.16);
   border-radius: 24px;
   box-shadow: 1px 1px 12px rgba(75, 68, 53, 0.22);
@@ -1073,7 +1073,7 @@ h1 {
 .clone-cover-card::after,
 .clone-photo-card::after,
 .closing-card::after {
-  background: url("/assets/templates/adat-jawa/corner-ornament.svg") center / contain no-repeat;
+  background: url("/assets/templates/adat-jawa/generated/corner-ornament.webp") center / contain no-repeat;
   content: "";
   height: 104px;
   pointer-events: none;

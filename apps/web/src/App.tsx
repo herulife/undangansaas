@@ -1054,7 +1054,7 @@ function PublicInvitationPage({
           <img
             alt="Ornamen gunungan Jawa"
             className="gunungan-mark"
-            src="/assets/templates/adat-jawa/gunungan.svg"
+            src="/assets/templates/adat-jawa/generated/gunungan.webp"
           />
           <p className="clone-kicker">The Wedding Of</p>
           <h1>{invitation.couple}</h1>
@@ -1074,7 +1074,7 @@ function PublicInvitationPage({
           <img
             alt={`Ilustrasi mempelai ${invitation.couple}`}
             className="clone-photo"
-            src="/assets/templates/adat-jawa/couple-portrait.svg"
+            src="/assets/templates/adat-jawa/generated/couple-portrait.webp"
           />
           <p className="clone-kicker">Assalamu'alaikum Warahmatullahi Wabarakatuh</p>
           <h2>{invitation.couple}</h2>
@@ -1122,7 +1122,7 @@ function PublicInvitationPage({
           <span>Lokasi</span>
           <h2>Petunjuk Arah</h2>
           <div className="map-placeholder">
-            <img alt="Ilustrasi peta lokasi acara" src="/assets/templates/adat-jawa/map-illustration.svg" />
+            <img alt="Ilustrasi peta lokasi acara" src="/assets/templates/adat-jawa/generated/map-illustration.webp" />
           </div>
           <a className="clone-open-button" href="https://maps.google.com" rel="noreferrer" target="_blank">
             Buka Google Maps
@@ -1130,11 +1130,11 @@ function PublicInvitationPage({
         </div>
 
         <div className="clone-gallery" id="galeri">
-          {[1, 2, 3].map((item) => (
+          {[1, 2, 3, 4, 5].map((item) => (
             <div key={item}>
               <img
                 alt={`Galeri pernikahan ${item}`}
-                src={`/assets/templates/adat-jawa/gallery-${item}.svg`}
+                src={`/assets/templates/adat-jawa/generated/gallery-${item}.webp`}
               />
             </div>
           ))}
@@ -1185,7 +1185,7 @@ function PublicInvitationPage({
           <img
             alt="Ilustrasi amplop digital"
             className="gift-illustration"
-            src="/assets/templates/adat-jawa/gift-envelope.svg"
+            src="/assets/templates/adat-jawa/generated/gift-envelope.webp"
           />
           <p>Fitur rekening, QR, dan kado fisik akan tersambung ke editor paket premium.</p>
           <button className="clone-open-button" type="button">Salin Rekening</button>
