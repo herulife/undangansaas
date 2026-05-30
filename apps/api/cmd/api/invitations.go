@@ -59,6 +59,12 @@ func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+
 	var payload createInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
@@ -101,10 +107,6 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var item invitation
-	var userID *string
-	if user, ok := currentUserFromContext(r.Context()); ok {
-		userID = &user.ID
-	}
 	err = a.db.QueryRow(r.Context(), `
 		with selected_template as (
 			select id, name, slug
@@ -120,7 +122,7 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 		select inserted.id, inserted.slug, inserted.title, inserted.couple, selected_template.name, selected_template.slug, inserted.event_date::text, inserted.status, inserted.config, 0, true, inserted.created_at
 		from inserted
 		join selected_template on true
-	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug, userID).Scan(
+	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug, user.ID).Scan(
 		&item.ID,
 		&item.Slug,
 		&item.Title,
@@ -185,6 +187,12 @@ func (a *app) getInvitation(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) updateInvitation(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	user, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+
 	var payload updateInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
@@ -231,8 +239,9 @@ func (a *app) updateInvitation(w http.ResponseWriter, r *http.Request) {
 			config = $6::jsonb,
 			updated_at = now()
 		where slug = $1
+			and ($7 = 'admin' or user_id = $8::uuid)
 		returning id, slug, title, couple, event_date::text, status, config, created_at
-	`, slug, payload.Title, payload.Couple, payload.EventDate, payload.Status, string(config)).Scan(
+	`, slug, payload.Title, payload.Couple, payload.EventDate, payload.Status, string(config), user.Role, user.ID).Scan(
 		&item.ID,
 		&item.Slug,
 		&item.Title,
