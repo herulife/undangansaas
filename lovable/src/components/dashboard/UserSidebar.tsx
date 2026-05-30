@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { clearAuthSession, getStoredUser } from "@/lib/api";
 import {
   LayoutDashboard, FileHeart, Plus, LayoutTemplate, MessageSquareHeart,
   Users, CreditCard, Settings, LogOut,
@@ -18,6 +19,13 @@ const items: Item[] = [
 
 export function UserSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const user = getStoredUser();
+  const initial = (user?.displayName || user?.email || "U").slice(0, 1).toUpperCase();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    window.location.href = "/login";
+  };
 
   return (
     <aside className="w-64 shrink-0 border-r border-border/60 bg-surface/40 min-h-screen sticky top-0 flex flex-col">
@@ -49,14 +57,14 @@ export function UserSidebar() {
       </nav>
       <div className="p-3 border-t border-border/60">
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/40">
-          <div className="size-9 rounded-full bg-gold-gradient flex items-center justify-center text-primary-foreground font-medium">R</div>
+          <div className="size-9 rounded-full bg-gold-gradient flex items-center justify-center text-primary-foreground font-medium">{initial}</div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">Rara W.</div>
-            <div className="text-xs text-muted-foreground truncate">Plan Pro</div>
+            <div className="text-sm font-medium truncate">{user?.displayName || "User"}</div>
+            <div className="text-xs text-muted-foreground truncate">{user?.tier ? `Plan ${user.tier}` : "Plan aktif"}</div>
           </div>
-          <Link to="/" aria-label="Keluar" className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={handleLogout} aria-label="Keluar" className="text-muted-foreground hover:text-foreground">
             <LogOut className="size-4" />
-          </Link>
+          </button>
         </div>
       </div>
     </aside>

@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { clearAuthSession } from "@/lib/api";
 import {
   LayoutDashboard, Users, LayoutTemplate, ShoppingBag, Ticket,
   BarChart3, Image, Settings, LogOut, Shield,
@@ -18,6 +19,11 @@ const items: Item[] = [
 
 export function AdminSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const handleLogout = () => {
+    clearAuthSession();
+    window.location.href = "/login";
+  };
+
   return (
     <aside className="w-60 shrink-0 bg-[oklch(0.09_0.005_60)] text-foreground border-r border-border/60 min-h-screen sticky top-0 flex flex-col">
       <div className="px-5 h-16 flex items-center gap-2 border-b border-border/60">
@@ -44,7 +50,7 @@ export function AdminSidebar() {
       </nav>
       <div className="p-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
         <span>v1.0.0 - ops</span>
-        <Link to="/" aria-label="Keluar" className="hover:text-foreground"><LogOut className="size-4" /></Link>
+        <button type="button" onClick={handleLogout} aria-label="Keluar" className="hover:text-foreground"><LogOut className="size-4" /></button>
       </div>
     </aside>
   );
