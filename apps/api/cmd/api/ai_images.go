@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"os"
@@ -40,9 +41,11 @@ func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
 
 	provider := strings.ToLower(strings.TrimSpace(env("AI_IMAGE_PROVIDER", "openai")))
 	imageBytes, err := requestGeneratedImage(r.Context(), provider, finalPrompt, payload.Size)
+	extension := ".png"
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
-		return
+		imageBytes = fallbackInvitationSVG(finalPrompt, payload.Style)
+		provider = provider + "-fallback"
+		extension = ".svg"
 	}
 
 	dir := filepath.Join(uploadDir(), "ai")
@@ -51,7 +54,7 @@ func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := fmt.Sprintf("ai-%d.png", time.Now().UnixNano())
+	fileName := fmt.Sprintf("ai-%d%s", time.Now().UnixNano(), extension)
 	filePath := filepath.Join(dir, fileName)
 	if err := os.WriteFile(filePath, imageBytes, 0o644); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -64,6 +67,45 @@ func (a *app) generateImage(w http.ResponseWriter, r *http.Request) {
 		URL:      "/api/uploads/ai/" + fileName,
 		Prompt:   finalPrompt,
 	})
+}
+
+func fallbackInvitationSVG(prompt string, style string) []byte {
+	title := "Generated Wedding Gallery"
+	if strings.Contains(strings.ToLower(prompt), "jawa") || strings.Contains(strings.ToLower(prompt), "javanese") {
+		title = "Jawa Klasik Gallery"
+	}
+	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#21150f"/>
+      <stop offset="0.5" stop-color="#6f4521"/>
+      <stop offset="1" stop-color="#e8c77c"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%%" cy="35%%" r="50%%">
+      <stop offset="0" stop-color="#fff8ed" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#fff8ed" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#halo)"/>
+  <g fill="none" stroke="#f4d58a" stroke-width="8" opacity="0.9">
+    <circle cx="512" cy="420" r="260"/>
+    <path d="M214 732C310 650 395 624 512 624s202 26 298 108"/>
+    <path d="M216 246c92 42 170 42 262 0M546 246c92 42 170 42 262 0"/>
+  </g>
+  <g fill="#fff8ed" opacity="0.94">
+    <circle cx="412" cy="384" r="74"/>
+    <circle cx="612" cy="384" r="74"/>
+    <path d="M318 522c0-82 188-82 188 0v178H318z"/>
+    <path d="M518 522c0-82 188-82 188 0v178H518z"/>
+  </g>
+  <g fill="#f4d58a">
+    <circle cx="166" cy="834" r="16"/><circle cx="246" cy="834" r="16"/><circle cx="326" cy="834" r="16"/><circle cx="406" cy="834" r="16"/><circle cx="486" cy="834" r="16"/><circle cx="566" cy="834" r="16"/><circle cx="646" cy="834" r="16"/><circle cx="726" cy="834" r="16"/><circle cx="806" cy="834" r="16"/>
+  </g>
+  <text x="512" y="788" text-anchor="middle" font-family="Georgia, serif" font-size="62" font-weight="700" fill="#fff8ed">%s</text>
+  <text x="512" y="872" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#2b1a11">fallback asset - %s</text>
+</svg>`, html.EscapeString(title), html.EscapeString(strings.TrimSpace(style)))
+	return []byte(svg)
 }
 
 func requestGeneratedImage(ctx context.Context, provider string, prompt string, size string) ([]byte, error) {
