@@ -92,6 +92,7 @@ type authUser struct {
 	Email         string
 	Role          string
 	Tier          tierName
+	Status        string
 	TierExpiresAt *time.Time
 	IsB2B         bool
 	ClientLimit   int
@@ -171,4 +172,37 @@ type authUserPublic struct {
 	DisplayName string   `json:"displayName"`
 	Role        string   `json:"role"`
 	Tier        tierName `json:"tier"`
+}
+
+type adminUser struct {
+	ID              string     `json:"id"`
+	Email           string     `json:"email"`
+	DisplayName     string     `json:"displayName"`
+	Role            string     `json:"role"`
+	Tier            tierName   `json:"tier"`
+	Status          string     `json:"status"`
+	TierExpiresAt   *time.Time `json:"tierExpiresAt"`
+	IsB2B           bool       `json:"isB2b"`
+	ClientLimit     int        `json:"clientLimit"`
+	InvitationCount int        `json:"invitationCount"`
+	RSVPCount       int        `json:"rsvpCount"`
+	PaymentCount    int        `json:"paymentCount"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
+}
+
+type adminUserRequest struct {
+	Email         string `json:"email"`
+	DisplayName   string `json:"displayName"`
+	Password      string `json:"password"`
+	Role          string `json:"role"`
+	Tier          string `json:"tier"`
+	Status        string `json:"status"`
+	TierExpiresAt string `json:"tierExpiresAt"`
+	IsB2B         bool   `json:"isB2b"`
+	ClientLimit   int    `json:"clientLimit"`
+}
+
+type adminPasswordRequest struct {
+	Password string `json:"password"`
 }

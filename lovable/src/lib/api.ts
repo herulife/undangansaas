@@ -40,6 +40,35 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type AdminUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: "user" | "admin" | "reseller" | "client";
+  tier: "free" | "creator" | "pro" | "business";
+  status: "active" | "suspended";
+  tierExpiresAt: string | null;
+  isB2b: boolean;
+  clientLimit: number;
+  invitationCount: number;
+  rsvpCount: number;
+  paymentCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminUserPayload = {
+  email: string;
+  displayName: string;
+  password?: string;
+  role: AdminUser["role"];
+  tier: AdminUser["tier"];
+  status: AdminUser["status"];
+  tierExpiresAt?: string;
+  isB2b: boolean;
+  clientLimit: number;
+};
+
 export type UploadResponse = {
   fileName: string;
   url: string;
@@ -139,6 +168,37 @@ export function changePassword(payload: { currentPassword: string; newPassword: 
   return request<void>("/api/auth/password", {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function listAdminUsers(params?: { q?: string; status?: string; role?: string; tier?: string }) {
+  const query = new URLSearchParams();
+  if (params?.q) query.set("q", params.q);
+  if (params?.status) query.set("status", params.status);
+  if (params?.role) query.set("role", params.role);
+  if (params?.tier) query.set("tier", params.tier);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<AdminUser[]>(`/api/admin/users${suffix}`);
+}
+
+export function createAdminUser(payload: AdminUserPayload & { password: string }) {
+  return request<AdminUser>("/api/admin/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminUser(id: string, payload: AdminUserPayload) {
+  return request<AdminUser>(`/api/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetAdminUserPassword(id: string, password: string) {
+  return request<void>(`/api/admin/users/${id}/password`, {
+    method: "PATCH",
+    body: JSON.stringify({ password }),
   });
 }
 

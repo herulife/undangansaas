@@ -42,6 +42,22 @@ func (a *app) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+func (a *app) RequireAdmin(next http.Handler) http.Handler {
+	return a.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, ok := currentUserFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+			return
+		}
+		if user.Role != "admin" {
+			writeError(w, http.StatusForbidden, errors.New("admin role required"))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}))
+}
+
 func currentUserFromContext(ctx context.Context) (*authUser, bool) {
 	user, ok := ctx.Value(authUserContextKey).(*authUser)
 	return user, ok && user != nil
@@ -164,7 +180,7 @@ func signJWT(userID string, ttl time.Duration, secret string) (string, error) {
 func (a *app) findUserByID(ctx context.Context, userID string) (*authUser, error) {
 	var user authUser
 	err := a.db.QueryRow(ctx, `
-		select id::text, email, role, tier, tier_expires_at, is_b2b, client_limit
+		select id::text, email, role, tier, status, tier_expires_at, is_b2b, client_limit
 		from users
 		where id = $1
 	`, userID).Scan(
@@ -172,6 +188,7 @@ func (a *app) findUserByID(ctx context.Context, userID string) (*authUser, error
 		&user.Email,
 		&user.Role,
 		&user.Tier,
+		&user.Status,
 		&user.TierExpiresAt,
 		&user.IsB2B,
 		&user.ClientLimit,
@@ -184,6 +201,9 @@ func (a *app) findUserByID(ctx context.Context, userID string) (*authUser, error
 	}
 	if user.Tier == "" {
 		user.Tier = tierFree
+	}
+	if user.Status == "suspended" {
+		return nil, errors.New("user is suspended")
 	}
 
 	return &user, nil

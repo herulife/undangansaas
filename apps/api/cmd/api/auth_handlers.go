@@ -66,6 +66,7 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 		select id::text, email, display_name, role, tier, coalesce(password_hash, '')
 		from users
 		where lower(email) = lower($1)
+			and status <> 'suspended'
 	`, email).Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.Tier, &hash)
 	if errors.Is(err, pgx.ErrNoRows) || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
 		writeError(w, http.StatusUnauthorized, errors.New("invalid email or password"))
@@ -195,8 +196,8 @@ func (a *app) changePassword(w http.ResponseWriter, r *http.Request) {
 func (a *app) insertUser(r *http.Request, email string, displayName string, passwordHash string) (authUserPublic, error) {
 	var user authUserPublic
 	err := a.db.QueryRow(r.Context(), `
-		insert into users (email, display_name, password_hash, role, tier)
-		values ($1, $2, $3, 'user', 'free')
+		insert into users (email, display_name, password_hash, role, tier, status)
+		values ($1, $2, $3, 'user', 'free', 'active')
 		returning id::text, email, display_name, role, tier
 	`, email, displayName, passwordHash).Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.Tier)
 	return user, err

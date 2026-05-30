@@ -44,6 +44,14 @@ func (a *app) routes() http.Handler {
 		r.Post("/ai/images", a.generateImage)
 		r.With(a.RequireAuth).Post("/uploads", a.uploadMedia)
 		r.Handle("/uploads/*", http.StripPrefix("/api/uploads/", http.FileServer(http.Dir(uploadDir()))))
+
+		r.Group(func(r chi.Router) {
+			r.Use(a.RequireAdmin)
+			r.Get("/admin/users", a.listAdminUsers)
+			r.Post("/admin/users", a.createAdminUser)
+			r.Patch("/admin/users/{id}", a.updateAdminUser)
+			r.Patch("/admin/users/{id}/password", a.resetAdminUserPassword)
+		})
 	})
 
 	router.Route("/api/v1", func(r chi.Router) {

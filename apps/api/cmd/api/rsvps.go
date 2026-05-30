@@ -50,6 +50,7 @@ func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 			coalesce(users.email, ''),
 			coalesce(users.role, 'user'),
 			coalesce(users.tier, 'free'),
+			coalesce(users.status, 'active'),
 			users.tier_expires_at,
 			coalesce(users.is_b2b, false),
 			coalesce(users.client_limit, 1)
@@ -63,6 +64,7 @@ func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 		&owner.Email,
 		&owner.Role,
 		&owner.Tier,
+		&owner.Status,
 		&owner.TierExpiresAt,
 		&owner.IsB2B,
 		&owner.ClientLimit,

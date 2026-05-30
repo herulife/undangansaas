@@ -46,6 +46,7 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 			display_name text not null default '',
 			role text not null default 'user',
 			tier text not null default 'free',
+			status text not null default 'active',
 			tier_expires_at timestamptz,
 			is_b2b boolean not null default false,
 			client_limit integer not null default 1,
@@ -57,6 +58,7 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		alter table users add column if not exists display_name text not null default '';
 		alter table users add column if not exists role text not null default 'user';
 		alter table users add column if not exists tier text not null default 'free';
+		alter table users add column if not exists status text not null default 'active';
 		alter table users add column if not exists tier_expires_at timestamptz;
 		alter table users add column if not exists is_b2b boolean not null default false;
 		alter table users add column if not exists client_limit integer not null default 1;
@@ -74,6 +76,10 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 			if not exists (select 1 from pg_constraint where conname = 'users_tier_check') then
 				alter table users add constraint users_tier_check
 					check (tier in ('free', 'creator', 'pro', 'business'));
+			end if;
+			if not exists (select 1 from pg_constraint where conname = 'users_status_check') then
+				alter table users add constraint users_status_check
+					check (status in ('active', 'suspended'));
 			end if;
 			if not exists (select 1 from pg_constraint where conname = 'users_client_limit_check') then
 				alter table users add constraint users_client_limit_check
