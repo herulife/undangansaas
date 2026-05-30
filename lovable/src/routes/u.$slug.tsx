@@ -14,6 +14,9 @@ function InvitationPreview() {
   const [apiInvitation, setApiInvitation] = useState<Invitation | null>(null);
   const invitation = apiInvitation ?? fallbackInvitation;
   const template = getTemplateBySlug(invitation.templateSlug);
+  const invitationMedia = invitation as Invitation & { galleryImages?: string[]; musicTrack?: string };
+  const galleryImages = invitationMedia.galleryImages?.length ? invitationMedia.galleryImages : [invitation.img, template.img, invitation.img];
+  const musicLabel = musicTrackLabel(invitationMedia.musicTrack);
   const [opened, setOpened] = useState(false);
   const [music, setMusic] = useState(false);
   const [readMode, setReadMode] = useState(false);
@@ -112,7 +115,7 @@ function InvitationPreview() {
             <p className="text-xs uppercase tracking-[0.3em] text-[#9a6a2f]">Template</p>
             <h2 className="mt-3 font-serif text-4xl">{template.name}</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {[invitation.img, template.img, invitation.img].map((img, index) => (
+              {galleryImages.map((img, index) => (
                 <div key={index} className="aspect-[3/4] overflow-hidden rounded-lg bg-[#e7dcc8]">
                   <img src={img} alt="" loading="lazy" className="h-full w-full object-cover" />
                 </div>
@@ -181,6 +184,7 @@ function InvitationPreview() {
         <button onClick={() => setMusic((value) => !value)} className="grid size-10 place-items-center rounded-full bg-white/10 text-[#e8c77c]" aria-label="Toggle musik">
           {music ? <Music2 className="size-4" /> : <Pause className="size-4" />}
         </button>
+        <span className="max-w-28 truncate px-2 text-xs text-[#fff8ed]/70">{musicLabel}</span>
         <button onClick={() => setReadMode((value) => !value)} className="grid size-10 place-items-center rounded-full bg-[#e8c77c] text-[#24170f]" aria-label="Toggle auto read">
           {readMode ? <Pause className="size-4" /> : <Play className="size-4" />}
         </button>
@@ -218,6 +222,21 @@ function fromApiInvitation(item: ApiInvitation, fallback: Invitation): Invitatio
     city: String(config.city ?? fallback.city),
     akadTime: String(config.akadTime ?? fallback.akadTime),
     receptionTime: String(config.receptionTime ?? fallback.receptionTime),
-    img: getTemplateBySlug(item.templateSlug).img,
-  };
+    img: Array.isArray(config.galleryImages) && config.galleryImages[0] ? String(config.galleryImages[0]) : getTemplateBySlug(item.templateSlug).img,
+    galleryImages: Array.isArray(config.galleryImages) ? config.galleryImages.map(String) : [],
+    musicTrack: String(config.musicTrack ?? "gamelan-jawa"),
+  } as Invitation & { galleryImages: string[]; musicTrack: string };
+}
+
+function musicTrackLabel(value?: string) {
+  switch (value) {
+    case "acoustic-romantic":
+      return "Akustik Romantis";
+    case "piano-wedding":
+      return "Piano Wedding";
+    case "none":
+      return "Tanpa Musik";
+    default:
+      return "Gamelan Jawa Lembut";
+  }
 }

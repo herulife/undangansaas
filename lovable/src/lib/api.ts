@@ -40,6 +40,19 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type UploadResponse = {
+  fileName: string;
+  url: string;
+  type: "images" | "audio";
+};
+
+export type GenerateImageResponse = {
+  fileName: string;
+  provider: string;
+  url: string;
+  prompt: string;
+};
+
 export type RSVPInput = {
   name: string;
   message: string;
@@ -125,6 +138,31 @@ export async function updateProfile(payload: { email: string; displayName: strin
 export function changePassword(payload: { currentPassword: string; newPassword: string }) {
   return request<void>("/api/auth/password", {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadMedia(file: File) {
+  const token = getAuthToken();
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(`${API_BASE}/api/uploads`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error ?? `Upload failed: ${response.status}`);
+  }
+  return response.json() as Promise<UploadResponse>;
+}
+
+export function generateInvitationImage(payload: { prompt: string; style?: string; size?: string }) {
+  return request<GenerateImageResponse>("/api/ai/images", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
