@@ -149,6 +149,16 @@ type authRequest struct {
 	DisplayName string `json:"displayName"`
 }
 
+type updateProfileRequest struct {
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 type authResponse struct {
 	Token string         `json:"token"`
 	User  authUserPublic `json:"user"`

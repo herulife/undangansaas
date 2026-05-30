@@ -100,6 +100,98 @@ func (a *app) authMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, user)
 }
 
+func (a *app) updateProfile(w http.ResponseWriter, r *http.Request) {
+	current, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+
+	var payload updateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
+		return
+	}
+
+	email := normalizeEmail(payload.Email)
+	displayName := strings.TrimSpace(payload.DisplayName)
+	if displayName == "" {
+		writeError(w, http.StatusBadRequest, errors.New("displayName is required"))
+		return
+	}
+	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		writeError(w, http.StatusBadRequest, errors.New("valid email is required"))
+		return
+	}
+
+	var user authUserPublic
+	err := a.db.QueryRow(r.Context(), `
+		update users
+		set email = $1, display_name = $2
+		where id = $3
+		returning id::text, email, display_name, role, tier
+	`, email, displayName, current.ID).Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.Tier)
+	if err != nil {
+		writeError(w, http.StatusConflict, errors.New("email already registered"))
+		return
+	}
+
+	writeJSON(w, user)
+}
+
+func (a *app) changePassword(w http.ResponseWriter, r *http.Request) {
+	current, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+
+	var payload changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
+		return
+	}
+
+	currentPassword := strings.TrimSpace(payload.CurrentPassword)
+	newPassword := strings.TrimSpace(payload.NewPassword)
+	if len(currentPassword) < 8 {
+		writeError(w, http.StatusBadRequest, errors.New("current password must be at least 8 characters"))
+		return
+	}
+	if len(newPassword) < 8 {
+		writeError(w, http.StatusBadRequest, errors.New("new password must be at least 8 characters"))
+		return
+	}
+
+	var hash string
+	err := a.db.QueryRow(r.Context(), `
+		select coalesce(password_hash, '')
+		from users
+		where id = $1
+	`, current.ID).Scan(&hash)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, errors.New("user not found"))
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(currentPassword)) != nil {
+		writeError(w, http.StatusUnauthorized, errors.New("current password is incorrect"))
+		return
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if _, err := a.db.Exec(r.Context(), `update users set password_hash = $1 where id = $2`, string(newHash), current.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *app) insertUser(r *http.Request, email string, displayName string, passwordHash string) (authUserPublic, error) {
 	var user authUserPublic
 	err := a.db.QueryRow(r.Context(), `

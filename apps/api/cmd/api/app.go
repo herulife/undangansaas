@@ -32,6 +32,8 @@ func (a *app) routes() http.Handler {
 		r.Post("/auth/register", a.register)
 		r.Post("/auth/login", a.login)
 		r.With(a.RequireAuth).Get("/auth/me", a.authMe)
+		r.With(a.RequireAuth).Patch("/auth/me", a.updateProfile)
+		r.With(a.RequireAuth).Patch("/auth/password", a.changePassword)
 		r.Get("/templates", a.listTemplates)
 		r.Get("/invitations", a.listInvitations)
 		r.With(a.RequireAuth).Post("/invitations", a.createInvitation)

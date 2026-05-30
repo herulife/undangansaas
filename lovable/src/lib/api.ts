@@ -87,6 +87,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? `Request failed: ${response.status}`);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -106,6 +109,24 @@ export function register(email: string, password: string, displayName: string) {
 
 export function getMe() {
   return request<AuthUser>("/api/auth/me");
+}
+
+export async function updateProfile(payload: { email: string; displayName: string }) {
+  const user = await request<AuthUser>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+  return user;
+}
+
+export function changePassword(payload: { currentPassword: string; newPassword: string }) {
+  return request<void>("/api/auth/password", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listInvitations() {
