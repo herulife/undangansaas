@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
@@ -33,18 +35,71 @@ func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := a.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var invitationID string
+	var owner authUser
+	err = tx.QueryRow(r.Context(), `
+		select invitations.id::text,
+			coalesce(users.id::text, ''),
+			coalesce(users.email, ''),
+			coalesce(users.role, 'user'),
+			coalesce(users.tier, 'free'),
+			users.tier_expires_at,
+			coalesce(users.is_b2b, false),
+			coalesce(users.client_limit, 1)
+		from invitations
+		left join users on users.id = invitations.user_id
+		where invitations.slug = $1
+		for update of invitations
+	`, slug).Scan(
+		&invitationID,
+		&owner.ID,
+		&owner.Email,
+		&owner.Role,
+		&owner.Tier,
+		&owner.TierExpiresAt,
+		&owner.IsB2B,
+		&owner.ClientLimit,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, errors.New("invitation not found"))
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if owner.Tier == "" {
+		owner.Tier = tierFree
+	}
+
+	features := featuresForUser(&owner, time.Now()).Features
+	var currentRSVPCount int
+	if err := tx.QueryRow(r.Context(), `
+		select count(*)::int
+		from rsvps
+		where invitation_id = $1
+	`, invitationID).Scan(&currentRSVPCount); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if currentRSVPCount >= features.RSVPLimit {
+		writeError(w, http.StatusForbidden, errors.New("rsvp limit reached for current tier"))
+		return
+	}
+
 	var item rsvp
-	err := a.db.QueryRow(r.Context(), `
-		with selected_invitation as (
-			select id
-			from invitations
-			where slug = $1
-		)
+	err = tx.QueryRow(r.Context(), `
 		insert into rsvps (invitation_id, name, message, status, guests)
-		select id, $2, $3, $4, $5
-		from selected_invitation
+		values ($1, $2, $3, $4, $5)
 		returning id, name, message, status, guests, created_at
-	`, slug, strings.TrimSpace(payload.Name), strings.TrimSpace(payload.Message), payload.Status, payload.Guests).Scan(
+	`, invitationID, strings.TrimSpace(payload.Name), strings.TrimSpace(payload.Message), payload.Status, payload.Guests).Scan(
 		&item.ID,
 		&item.Name,
 		&item.Message,
@@ -53,7 +108,11 @@ func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 		&item.CreatedAt,
 	)
 	if err != nil {
-		writeError(w, http.StatusNotFound, errors.New("invitation not found"))
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 

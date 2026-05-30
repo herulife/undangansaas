@@ -1,0 +1,163 @@
+package main
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+type contextKey string
+
+const authUserContextKey contextKey = "authUser"
+
+type jwtHeader struct {
+	Algorithm string `json:"alg"`
+	Type      string `json:"typ"`
+}
+
+type jwtClaims struct {
+	ExpiresAt int64  `json:"exp"`
+	Subject   string `json:"sub"`
+	UserID    string `json:"user_id"`
+}
+
+func (a *app) RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := a.authenticateRequest(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), authUserContextKey, user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func currentUserFromContext(ctx context.Context) (*authUser, bool) {
+	user, ok := ctx.Value(authUserContextKey).(*authUser)
+	return user, ok && user != nil
+}
+
+func (a *app) authenticateRequest(r *http.Request) (*authUser, error) {
+	if env("ALLOW_DEV_AUTH", "false") == "true" {
+		if userID := strings.TrimSpace(r.Header.Get("X-User-ID")); userID != "" {
+			return a.findUserByID(r.Context(), userID)
+		}
+	}
+
+	token, ok := bearerToken(r.Header.Get("Authorization"))
+	if !ok {
+		return nil, errors.New("missing bearer token")
+	}
+
+	subject, err := verifyJWTSubject(token, env("JWT_SECRET", ""))
+	if err != nil {
+		return nil, err
+	}
+
+	return a.findUserByID(r.Context(), subject)
+}
+
+func bearerToken(header string) (string, bool) {
+	parts := strings.Fields(header)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return "", false
+	}
+	return parts[1], true
+}
+
+func verifyJWTSubject(token string, secret string) (string, error) {
+	if secret == "" {
+		return "", errors.New("JWT_SECRET is not configured")
+	}
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", errors.New("invalid jwt format")
+	}
+
+	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return "", errors.New("invalid jwt header")
+	}
+
+	var header jwtHeader
+	if err := json.Unmarshal(headerBytes, &header); err != nil {
+		return "", errors.New("invalid jwt header json")
+	}
+	if header.Algorithm != "HS256" {
+		return "", errors.New("unsupported jwt algorithm")
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(parts[0] + "." + parts[1]))
+	expected := mac.Sum(nil)
+
+	actual, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return "", errors.New("invalid jwt signature")
+	}
+	if !hmac.Equal(actual, expected) {
+		return "", errors.New("invalid jwt signature")
+	}
+
+	claimsBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", errors.New("invalid jwt claims")
+	}
+
+	var claims jwtClaims
+	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
+		return "", errors.New("invalid jwt claims json")
+	}
+	if claims.ExpiresAt > 0 && time.Now().Unix() >= claims.ExpiresAt {
+		return "", errors.New("jwt expired")
+	}
+
+	subject := strings.TrimSpace(claims.Subject)
+	if subject == "" {
+		subject = strings.TrimSpace(claims.UserID)
+	}
+	if subject == "" {
+		return "", errors.New("jwt subject is required")
+	}
+
+	return subject, nil
+}
+
+func (a *app) findUserByID(ctx context.Context, userID string) (*authUser, error) {
+	var user authUser
+	err := a.db.QueryRow(ctx, `
+		select id::text, email, role, tier, tier_expires_at, is_b2b, client_limit
+		from users
+		where id = $1
+	`, userID).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Role,
+		&user.Tier,
+		&user.TierExpiresAt,
+		&user.IsB2B,
+		&user.ClientLimit,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if user.Tier == "" {
+		user.Tier = tierFree
+	}
+
+	return &user, nil
+}

@@ -46,7 +46,9 @@ services:
 
   undangansaas-web:
     build:
-      context: ./apps/web
+      context: ./lovable
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: undangansaas-web
     restart: unless-stopped
     depends_on:

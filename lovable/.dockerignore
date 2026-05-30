@@ -1,0 +1,10 @@
+node_modules
+dist
+.tanstack
+.lovable
+*.log
+dev-server*.log
+mermaid-*.png
+Unconfirmed*
+.env
+.env.*

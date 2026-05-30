@@ -40,5 +40,18 @@ func (a *app) routes() http.Handler {
 		r.Handle("/uploads/*", http.StripPrefix("/api/uploads/", http.FileServer(http.Dir(uploadDir()))))
 	})
 
+	router.Route("/api/v1", func(r chi.Router) {
+		r.Get("/health", a.health)
+		r.Get("/templates", a.listTemplates)
+		r.Post("/events", a.trackEvent)
+
+		r.Group(func(r chi.Router) {
+			r.Use(a.RequireAuth)
+			r.Get("/me/features", a.meFeatures)
+			r.Put("/invitations/{slug}/publish", a.publishInvitation)
+			r.With(a.RequireTier([]string{featureExportCSV})).Get("/exports/invitations.csv", a.exportInvitationsCSV)
+		})
+	})
+
 	return router
 }
