@@ -135,8 +135,8 @@ function InvitationPreview() {
               <div className="grid grid-cols-2 gap-3">
                 <select value={rsvp.status} onChange={(event) => setRsvp((value) => ({ ...value, status: event.target.value as typeof rsvp.status }))} className="rounded-md border border-[#e8c77c]/25 bg-[#18120f] px-3 py-2 text-sm outline-none">
                   <option value="attending">Hadir</option>
-                  <option value="maybe">Masih tentative</option>
-                  <option value="not_attending">Tidak hadir</option>
+                  <option value="pending">Masih tentative</option>
+                  <option value="declined">Tidak hadir</option>
                 </select>
                 <input type="number" min="1" max="10" value={rsvp.guests} onChange={(event) => setRsvp((value) => ({ ...value, guests: event.target.value }))} className="rounded-md border border-[#e8c77c]/25 bg-black/20 px-3 py-2 text-sm outline-none" />
               </div>

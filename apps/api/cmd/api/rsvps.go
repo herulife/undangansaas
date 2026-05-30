@@ -125,13 +125,20 @@ func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) listRSVPs(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	user, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+
 	rows, err := a.db.Query(r.Context(), `
 		select rsvps.id, rsvps.name, rsvps.message, rsvps.status, rsvps.guests, rsvps.created_at
 		from rsvps
 		join invitations on invitations.id = rsvps.invitation_id
 		where invitations.slug = $1
+			and ($2 = 'admin' or invitations.user_id = $3::uuid)
 		order by rsvps.created_at desc
-	`, slug)
+	`, slug, user.Role, user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

@@ -40,7 +40,7 @@ func (a *app) routes() http.Handler {
 		r.Get("/invitations/{slug}", a.getInvitation)
 		r.With(a.RequireAuth).Patch("/invitations/{slug}", a.updateInvitation)
 		r.Post("/invitations/{slug}/rsvp", a.createRSVP)
-		r.Get("/invitations/{slug}/rsvps", a.listRSVPs)
+		r.With(a.RequireAuth).Get("/invitations/{slug}/rsvps", a.listRSVPs)
 		r.Post("/ai/images", a.generateImage)
 		r.With(a.RequireAuth).Post("/uploads", a.uploadMedia)
 		r.Handle("/uploads/*", http.StripPrefix("/api/uploads/", http.FileServer(http.Dir(uploadDir()))))

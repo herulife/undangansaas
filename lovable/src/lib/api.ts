@@ -85,8 +85,17 @@ export type GenerateImageResponse = {
 export type RSVPInput = {
   name: string;
   message: string;
-  status: "attending" | "not_attending" | "maybe";
+  status: "attending" | "declined" | "pending";
   guests: number;
+};
+
+export type RSVPItem = {
+  id: string;
+  name: string;
+  message: string;
+  status: RSVPInput["status"];
+  guests: number;
+  createdAt: string;
 };
 
 export function getAuthToken() {
@@ -263,4 +272,8 @@ export function submitRSVP(slug: string, payload: RSVPInput) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function listInvitationRSVPs(slug: string) {
+  return request<RSVPItem[]>(`/api/invitations/${slug}/rsvps`);
 }
