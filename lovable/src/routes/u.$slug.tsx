@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Gift, MapPin, Music2, Pause, Play, Send, Users } from "lucide-react";
 import { formatInvitationDate, getTemplateBySlug, type Invitation, userInvitations } from "@/lib/invitations";
@@ -176,7 +176,6 @@ function InvitationPreview() {
 
         <footer className="px-6 pb-24 pt-4 text-center text-sm text-[#fff8ed]/55">
           <p>Terima kasih atas doa dan kehadirannya.</p>
-          <Link to="/dashboard" className="mt-3 inline-flex text-[#e8c77c]">Kembali ke dashboard</Link>
         </footer>
       </div>
 
