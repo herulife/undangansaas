@@ -37,6 +37,7 @@ type createInvitationRequest struct {
 	Couple       string         `json:"couple"`
 	TemplateSlug string         `json:"templateSlug"`
 	EventDate    string         `json:"eventDate"`
+	Status       string         `json:"status"`
 	Config       map[string]any `json:"config"`
 }
 

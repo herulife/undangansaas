@@ -76,8 +76,12 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 	payload.Title = strings.TrimSpace(payload.Title)
 	payload.Couple = strings.TrimSpace(payload.Couple)
 	payload.EventDate = strings.TrimSpace(payload.EventDate)
+	payload.Status = strings.ToLower(strings.TrimSpace(payload.Status))
 	if payload.Config == nil {
 		payload.Config = map[string]any{}
+	}
+	if payload.Status == "" {
+		payload.Status = "draft"
 	}
 
 	if payload.Slug == "" {
@@ -99,6 +103,10 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("eventDate must use YYYY-MM-DD"))
 		return
 	}
+	if payload.Status != "draft" && payload.Status != "published" {
+		writeError(w, http.StatusBadRequest, errors.New("status must be draft or published"))
+		return
+	}
 
 	config, err := json.Marshal(payload.Config)
 	if err != nil {
@@ -115,14 +123,14 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 		),
 		inserted as (
 			insert into invitations (template_id, slug, title, couple, event_date, status, config, user_id)
-			select id, $1, $2, $3, $4, 'draft', $5::jsonb, $7::uuid
+			select id, $1, $2, $3, $4, $8, $5::jsonb, $7::uuid
 			from selected_template
 			returning id, slug, title, couple, event_date, status, config, created_at
 		)
 		select inserted.id, inserted.slug, inserted.title, inserted.couple, selected_template.name, selected_template.slug, inserted.event_date::text, inserted.status, inserted.config, 0, true, inserted.created_at
 		from inserted
 		join selected_template on true
-	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug, user.ID).Scan(
+	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug, user.ID, payload.Status).Scan(
 		&item.ID,
 		&item.Slug,
 		&item.Title,
