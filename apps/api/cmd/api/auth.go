@@ -59,7 +59,7 @@ func (a *app) authenticateRequest(r *http.Request) (*authUser, error) {
 		return nil, errors.New("missing bearer token")
 	}
 
-	subject, err := verifyJWTSubject(token, env("JWT_SECRET", ""))
+	subject, err := verifyJWTSubject(token, env("JWT_SECRET", "dev-secret-change-me"))
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +132,33 @@ func verifyJWTSubject(token string, secret string) (string, error) {
 	}
 
 	return subject, nil
+}
+
+func signJWT(userID string, ttl time.Duration, secret string) (string, error) {
+	if secret == "" {
+		return "", errors.New("JWT_SECRET is not configured")
+	}
+
+	header := jwtHeader{Algorithm: "HS256", Type: "JWT"}
+	claims := jwtClaims{
+		ExpiresAt: time.Now().Add(ttl).Unix(),
+		Subject:   userID,
+		UserID:    userID,
+	}
+
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		return "", err
+	}
+	claimsBytes, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+
+	unsigned := base64.RawURLEncoding.EncodeToString(headerBytes) + "." + base64.RawURLEncoding.EncodeToString(claimsBytes)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(unsigned))
+	return unsigned + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
 func (a *app) findUserByID(ctx context.Context, userID string) (*authUser, error) {

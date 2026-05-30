@@ -1,23 +1,38 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Topbar, StatusPill } from "@/components/dashboard/Shared";
-import { formatInvitationDate, userInvitations } from "@/lib/invitations";
+import { formatInvitationDate, getTemplateBySlug, userInvitations, type Invitation } from "@/lib/invitations";
 import { Eye, Edit3, Link2, BarChart3, Plus } from "lucide-react";
+import { listInvitations, type ApiInvitation } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/dashboard/undangan")({
   component: UndanganList,
 });
 
 function UndanganList() {
+  const [items, setItems] = useState<Invitation[]>(userInvitations);
+  const [subtitle, setSubtitle] = useState(`${userInvitations.length} undangan demo`);
+
+  useEffect(() => {
+    listInvitations()
+      .then((data) => {
+        const mapped = data.map(toInvitationCard);
+        setItems(mapped.length ? mapped : userInvitations);
+        setSubtitle(`${mapped.length} undangan dari database`);
+      })
+      .catch((error) => setSubtitle(error instanceof Error ? error.message : "Gagal memuat database"));
+  }, []);
+
   return (
     <>
-      <Topbar title="Undangan Saya" subtitle={`${userInvitations.length} undangan total`}>
+      <Topbar title="Undangan Saya" subtitle={subtitle}>
         <Link to="/dashboard/buat" className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold">
           <Plus className="size-4" /> Buat Baru
         </Link>
       </Topbar>
       <div className="p-6">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {userInvitations.map((inv) => (
+          {items.map((inv) => (
             <article key={inv.id} className="rounded-2xl bg-card hairline overflow-hidden flex flex-col">
               <div className="aspect-[16/10] overflow-hidden bg-secondary">
                 <img src={inv.img} alt={inv.title} className="w-full h-full object-cover" />
@@ -51,4 +66,27 @@ function UndanganList() {
       </div>
     </>
   );
+}
+
+function toInvitationCard(item: ApiInvitation): Invitation {
+  const template = getTemplateBySlug(item.templateSlug);
+  const config = item.config ?? {};
+  return {
+    id: item.id,
+    title: item.title || item.couple,
+    slug: item.slug,
+    template: item.template,
+    templateSlug: item.templateSlug,
+    date: item.eventDate,
+    status: item.status === "published" ? "Published" : "Draft",
+    views: 0,
+    rsvp: item.rsvpCount,
+    bride: String(config.bride ?? item.couple.split("&")[0]?.trim() ?? "Mempelai"),
+    groom: String(config.groom ?? item.couple.split("&")[1]?.trim() ?? "Pasangan"),
+    venue: String(config.venue ?? "Venue belum diisi"),
+    city: String(config.city ?? ""),
+    akadTime: String(config.akadTime ?? "08.00 WIB"),
+    receptionTime: String(config.receptionTime ?? "11.00 WIB"),
+    img: template.img,
+  };
 }

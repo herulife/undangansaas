@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Gift, MapPin, Music2, Pause, Play, Send, Users } from "lucide-react";
 import { formatInvitationDate, getTemplateBySlug, type Invitation, userInvitations } from "@/lib/invitations";
-import { getInvitation, type ApiInvitation } from "@/lib/api";
+import { getInvitation, submitRSVP, type ApiInvitation, type RSVPInput } from "@/lib/api";
 
 export const Route = createFileRoute("/u/$slug")({
   component: InvitationPreview,
@@ -18,6 +18,18 @@ function InvitationPreview() {
   const [music, setMusic] = useState(false);
   const [readMode, setReadMode] = useState(false);
   const [rsvpSent, setRsvpSent] = useState(false);
+  const [rsvpError, setRsvpError] = useState("");
+  const [rsvp, setRsvp] = useState<{
+    name: string;
+    message: string;
+    status: RSVPInput["status"];
+    guests: string;
+  }>({
+    name: "",
+    message: "",
+    status: "attending",
+    guests: "1",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -113,11 +125,40 @@ function InvitationPreview() {
           <div className="rounded-lg border border-[#e8c77c]/25 bg-white/[0.06] p-5">
             <Users className="size-6 text-[#e8c77c]" />
             <h2 className="mt-4 font-serif text-3xl">Konfirmasi Kehadiran</h2>
-            <p className="mt-2 text-sm text-[#fff8ed]/70">RSVP ini demo lokal. Data tidak dikirim ke server asli.</p>
-            <button onClick={() => setRsvpSent(true)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#e8c77c] px-5 py-2 text-sm font-semibold text-[#24170f]">
+            <p className="mt-2 text-sm text-[#fff8ed]/70">Isi RSVP agar tuan rumah bisa menyiapkan acara dengan lebih rapi.</p>
+            <div className="mt-5 space-y-3">
+              <input value={rsvp.name} onChange={(event) => setRsvp((value) => ({ ...value, name: event.target.value }))} placeholder="Nama tamu" className="w-full rounded-md border border-[#e8c77c]/25 bg-black/20 px-3 py-2 text-sm outline-none placeholder:text-[#fff8ed]/35" />
+              <textarea value={rsvp.message} onChange={(event) => setRsvp((value) => ({ ...value, message: event.target.value }))} placeholder="Ucapan singkat" className="min-h-20 w-full rounded-md border border-[#e8c77c]/25 bg-black/20 px-3 py-2 text-sm outline-none placeholder:text-[#fff8ed]/35" />
+              <div className="grid grid-cols-2 gap-3">
+                <select value={rsvp.status} onChange={(event) => setRsvp((value) => ({ ...value, status: event.target.value as typeof rsvp.status }))} className="rounded-md border border-[#e8c77c]/25 bg-[#18120f] px-3 py-2 text-sm outline-none">
+                  <option value="attending">Hadir</option>
+                  <option value="maybe">Masih tentative</option>
+                  <option value="not_attending">Tidak hadir</option>
+                </select>
+                <input type="number" min="1" max="10" value={rsvp.guests} onChange={(event) => setRsvp((value) => ({ ...value, guests: event.target.value }))} className="rounded-md border border-[#e8c77c]/25 bg-black/20 px-3 py-2 text-sm outline-none" />
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setRsvpError("");
+                try {
+                  await submitRSVP(invitation.slug, {
+                    name: rsvp.name,
+                    message: rsvp.message,
+                    status: rsvp.status,
+                    guests: Number(rsvp.guests) || 1,
+                  });
+                  setRsvpSent(true);
+                } catch (error) {
+                  setRsvpError(error instanceof Error ? error.message : "Gagal mengirim RSVP");
+                }
+              }}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#e8c77c] px-5 py-2 text-sm font-semibold text-[#24170f]"
+            >
               <Send className="size-4" /> Kirim RSVP
             </button>
             {rsvpSent && <p className="mt-3 text-sm text-emerald-200">Terima kasih, konfirmasi demo tersimpan.</p>}
+            {rsvpError && <p className="mt-3 text-sm text-red-200">{rsvpError}</p>}
           </div>
           <div className="rounded-lg border border-[#e8c77c]/25 bg-white/[0.06] p-5">
             <Gift className="size-6 text-[#e8c77c]" />

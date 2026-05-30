@@ -29,6 +29,9 @@ func (a *app) routes() http.Handler {
 	router.Get("/health", a.health)
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/health", a.health)
+		r.Post("/auth/register", a.register)
+		r.Post("/auth/login", a.login)
+		r.With(a.RequireAuth).Get("/auth/me", a.authMe)
 		r.Get("/templates", a.listTemplates)
 		r.Get("/invitations", a.listInvitations)
 		r.Post("/invitations", a.createInvitation)

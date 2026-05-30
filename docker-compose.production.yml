@@ -26,6 +26,7 @@ services:
       APP_PORT: "8088"
       DATABASE_URL: postgres://${POSTGRES_USER:-undangan_user}:${POSTGRES_PASSWORD:-change-me}@undangansaas-db:5432/${POSTGRES_DB:-undangan}?sslmode=disable
       WEB_ORIGIN: ${WEB_ORIGIN:-https://cintabuku.site}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       AI_IMAGE_PROVIDER: ${AI_IMAGE_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-gpt-image-1}

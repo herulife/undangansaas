@@ -43,6 +43,14 @@ function BuatUndangan() {
   };
 
   const handleSave = async () => {
+    await persistInvitation("draft");
+  };
+
+  const handlePublish = async () => {
+    await persistInvitation("published");
+  };
+
+  const persistInvitation = async (status: "draft" | "published") => {
     const title = `${data.bride} & ${data.groom}`;
     try {
       await saveInvitation({
@@ -51,7 +59,7 @@ function BuatUndangan() {
         couple: title,
         templateSlug: data.templateSlug,
         eventDate: data.date,
-        status: "draft",
+        status,
         config: {
           bride: data.bride,
           groom: data.groom,
@@ -66,9 +74,9 @@ function BuatUndangan() {
         },
       });
       setSaved(true);
-      setSaveMessage("Draft tersimpan ke Go API.");
+      setSaveMessage(status === "published" ? "Undangan dipublish dan siap dibagikan." : "Draft tersimpan ke database.");
     } catch (error) {
-      setSaveMessage(error instanceof Error ? `API belum siap: ${error.message}` : "API belum siap.");
+      setSaveMessage(error instanceof Error ? error.message : "Gagal menyimpan undangan.");
     }
   };
 
@@ -77,7 +85,7 @@ function BuatUndangan() {
       <Topbar title="Wizard Buat Undangan" subtitle={saveMessage || (saved ? "Tersimpan sebagai draft" : "Lengkapi detail, lalu preview sebelum publish")}>
         <button onClick={handleSave} className="hidden md:inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary"><Save className="size-4" />Simpan</button>
         <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary"><Eye className="size-4" />Preview</a>
-        <button className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold"><Send className="size-4" />Publish</button>
+        <button onClick={handlePublish} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold"><Send className="size-4" />Publish</button>
       </Topbar>
 
       <div className="grid min-h-[calc(100vh-4rem)] grid-cols-12">

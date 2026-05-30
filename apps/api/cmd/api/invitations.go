@@ -11,6 +11,11 @@ import (
 )
 
 func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
+	userID := ""
+	if user, err := a.authenticateRequest(r); err == nil {
+		userID = user.ID
+	}
+
 	rows, err := a.db.Query(r.Context(), `
 		select invitations.id, invitations.slug, invitations.title, invitations.couple, templates.name, templates.slug, invitations.event_date::text, invitations.status, invitations.config, count(rsvps.id),
 			case
@@ -25,9 +30,10 @@ func (a *app) listInvitations(w http.ResponseWriter, r *http.Request) {
 		join templates on templates.id = invitations.template_id
 		left join users on users.id = invitations.user_id
 		left join rsvps on rsvps.invitation_id = invitations.id
+		where ($1 = '' or invitations.user_id = $1::uuid)
 		group by invitations.id, templates.name, templates.slug, users.tier, users.tier_expires_at
 		order by invitations.created_at desc
-	`)
+	`, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -95,6 +101,10 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var item invitation
+	var userID *string
+	if user, ok := currentUserFromContext(r.Context()); ok {
+		userID = &user.ID
+	}
 	err = a.db.QueryRow(r.Context(), `
 		with selected_template as (
 			select id, name, slug
@@ -102,15 +112,15 @@ func (a *app) createInvitation(w http.ResponseWriter, r *http.Request) {
 			where slug = $6
 		),
 		inserted as (
-			insert into invitations (template_id, slug, title, couple, event_date, status, config)
-			select id, $1, $2, $3, $4, 'draft', $5::jsonb
+			insert into invitations (template_id, slug, title, couple, event_date, status, config, user_id)
+			select id, $1, $2, $3, $4, 'draft', $5::jsonb, $7::uuid
 			from selected_template
 			returning id, slug, title, couple, event_date, status, config, created_at
 		)
 		select inserted.id, inserted.slug, inserted.title, inserted.couple, selected_template.name, selected_template.slug, inserted.event_date::text, inserted.status, inserted.config, 0, true, inserted.created_at
 		from inserted
 		join selected_template on true
-	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug).Scan(
+	`, payload.Slug, payload.Title, payload.Couple, payload.EventDate, string(config), payload.TemplateSlug, userID).Scan(
 		&item.ID,
 		&item.Slug,
 		&item.Title,

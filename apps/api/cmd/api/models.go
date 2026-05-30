@@ -142,3 +142,22 @@ type trackEventRequest struct {
 	Properties     map[string]any `json:"properties"`
 	VisitorID      string         `json:"visitorId"`
 }
+
+type authRequest struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"displayName"`
+}
+
+type authResponse struct {
+	Token string         `json:"token"`
+	User  authUserPublic `json:"user"`
+}
+
+type authUserPublic struct {
+	ID          string   `json:"id"`
+	Email       string   `json:"email"`
+	DisplayName string   `json:"displayName"`
+	Role        string   `json:"role"`
+	Tier        tierName `json:"tier"`
+}
