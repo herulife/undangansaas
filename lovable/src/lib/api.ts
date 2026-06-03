@@ -133,6 +133,7 @@ export type PaymentCheckoutResponse = {
   amountIdr: number;
   checkoutUrl: string;
   demoSettleAllowed: boolean;
+  gatewayToken?: string;
   mode: "demo" | "gateway";
   orderId: string;
   provider: "manual" | "midtrans" | "xendit";

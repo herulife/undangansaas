@@ -35,6 +35,14 @@ services:
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       NVIDIA_IMAGE_ENDPOINT: ${NVIDIA_IMAGE_ENDPOINT:-https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-xl}
       GENERATED_ASSET_DIR: /app/uploads
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-midtrans}
+      ALLOW_DEMO_PAYMENTS: ${ALLOW_DEMO_PAYMENTS:-true}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      MIDTRANS_SNAP_URL: ${MIDTRANS_SNAP_URL:-}
+      XENDIT_API_KEY: ${XENDIT_API_KEY:-}
+      XENDIT_CALLBACK_TOKEN: ${XENDIT_CALLBACK_TOKEN:-}
     depends_on:
       undangansaas-db:
         condition: service_healthy

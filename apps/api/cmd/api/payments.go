@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha512"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -26,6 +28,7 @@ type paymentCheckoutResponse struct {
 	AmountIDR         int    `json:"amountIdr"`
 	CheckoutURL       string `json:"checkoutUrl"`
 	DemoSettleAllowed bool   `json:"demoSettleAllowed"`
+	GatewayToken      string `json:"gatewayToken,omitempty"`
 	Mode              string `json:"mode"`
 	OrderID           string `json:"orderId"`
 	Provider          string `json:"provider"`
@@ -56,6 +59,11 @@ type refundRequest struct {
 	Reason  string `json:"reason"`
 }
 
+type midtransSnapResponse struct {
+	Token       string `json:"token"`
+	RedirectURL string `json:"redirect_url"`
+}
+
 func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	user, ok := currentUserFromContext(r.Context())
 	if !ok {
@@ -75,6 +83,9 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := normalizePaymentProvider(payload.Provider)
+	if strings.TrimSpace(payload.Provider) == "" {
+		provider = normalizePaymentProvider(env("PAYMENT_PROVIDER", "manual"))
+	}
 	amount := amountForTier(tier)
 	discount, voucherCode, err := a.discountForVoucher(r.Context(), payload.VoucherCode, amount)
 	if err != nil {
@@ -89,15 +100,28 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	orderID := "CB-" + time.Now().Format("20060102150405") + "-" + randomHex(4)
 	mode := "demo"
 	checkoutURL := fmt.Sprintf("%s/dashboard/billing?order=%s", publicURL(r), orderID)
-	if provider != "manual" && paymentProviderConfigured(provider) {
+	gatewayToken := ""
+	if provider == "midtrans" && paymentProviderConfigured(provider) && amount > 0 {
+		snap, err := a.createMidtransSnap(r.Context(), r, user, orderID, tier, amount)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err)
+			return
+		}
+		mode = "gateway"
+		checkoutURL = snap.RedirectURL
+		gatewayToken = snap.Token
+	} else if provider != "manual" && provider != "midtrans" && paymentProviderConfigured(provider) && amount > 0 {
 		mode = "gateway"
 		checkoutURL = paymentCheckoutURL(provider, orderID)
 	}
 
 	raw, _ := json.Marshal(map[string]any{
-		"mode":        mode,
-		"voucherCode": voucherCode,
-		"discount":    discount,
+		"mode":              mode,
+		"voucherCode":       voucherCode,
+		"discount":          discount,
+		"midtransToken":     gatewayToken,
+		"midtransEnv":       env("MIDTRANS_ENV", "sandbox"),
+		"requestedProvider": payload.Provider,
 	})
 
 	_, err = a.db.Exec(r.Context(), `
@@ -118,6 +142,7 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 		AmountIDR:         amount,
 		CheckoutURL:       checkoutURL,
 		DemoSettleAllowed: mode == "demo",
+		GatewayToken:      gatewayToken,
 		Mode:              mode,
 		OrderID:           orderID,
 		Provider:          provider,
@@ -163,6 +188,9 @@ func (a *app) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("invalid webhook json"))
 		return
 	}
+	if provider == "manual" && looksLikeMidtransWebhook(payload) {
+		provider = "midtrans"
+	}
 
 	orderID := webhookString(payload, "order_id")
 	if orderID == "" {
@@ -187,6 +215,9 @@ func (a *app) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nextStatus := paymentStatusFromGateway(status)
+	if provider == "midtrans" {
+		nextStatus = paymentStatusFromMidtrans(payload)
+	}
 	item, err := a.settlePayment(r.Context(), orderID, nextStatus, payload, "")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -263,21 +294,44 @@ func (a *app) settlePayment(ctx context.Context, orderID string, status string, 
 	rawBytes, _ := json.Marshal(raw)
 
 	var item paymentItem
+	var previousStatus string
 	err := a.db.QueryRow(ctx, `
-		update payments
-		set status = $2,
-			raw_payload = raw_payload || $3::jsonb,
-			paid_at = case when $2 in ('paid', 'settlement') then coalesce(paid_at, now()) else paid_at end,
-			updated_at = now()
-		where provider_order_id = $1
-			and ($4 = '' or user_id = $4::uuid)
-		returning id::text, user_id::text, '', '', provider, provider_order_id, tier, amount_idr, currency, status, checkout_url, paid_at, refunded_at, created_at, updated_at
-	`, orderID, status, string(rawBytes), ownerID).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.PaidAt, &item.RefundedAt, &item.CreatedAt, &item.UpdatedAt)
+		with target as (
+			select id, status as previous_status
+			from payments
+			where provider_order_id = $1
+				and ($4 = '' or user_id = $4::uuid)
+		),
+		next_status as (
+			select id,
+				previous_status,
+				case
+					when previous_status in ('paid', 'settlement') and $2 not in ('paid', 'settlement') then previous_status
+					else $2
+				end as effective_status
+			from target
+		),
+		updated as (
+			update payments
+			set status = next_status.effective_status,
+				raw_payload = raw_payload || $3::jsonb,
+				paid_at = case when next_status.effective_status in ('paid', 'settlement') then coalesce(paid_at, now()) else paid_at end,
+				updated_at = now()
+			from next_status
+			where payments.id = next_status.id
+			returning payments.id::text, payments.user_id::text, '', '', payments.provider, payments.provider_order_id,
+				payments.tier, payments.amount_idr, payments.currency, payments.status, payments.checkout_url,
+				payments.paid_at, payments.refunded_at, payments.created_at, payments.updated_at, next_status.previous_status
+		)
+		select * from updated
+	`, orderID, status, string(rawBytes), ownerID).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.PaidAt, &item.RefundedAt, &item.CreatedAt, &item.UpdatedAt, &previousStatus)
 	if err != nil {
 		return paymentItem{}, errors.New("payment not found")
 	}
 
-	if status == "paid" || status == "settlement" {
+	isPaid := item.Status == "paid" || item.Status == "settlement"
+	wasPaid := previousStatus == "paid" || previousStatus == "settlement"
+	if isPaid && !wasPaid {
 		if _, err := a.db.Exec(ctx, `
 			update users
 			set tier = $2,
@@ -374,6 +428,95 @@ func paymentCheckoutURL(provider string, orderID string) string {
 	return base + "/" + orderID
 }
 
+func (a *app) createMidtransSnap(ctx context.Context, r *http.Request, user *authUser, orderID string, tier tierName, amount int) (midtransSnapResponse, error) {
+	serverKey := strings.TrimSpace(env("MIDTRANS_SERVER_KEY", ""))
+	if serverKey == "" {
+		return midtransSnapResponse{}, errors.New("MIDTRANS_SERVER_KEY is not configured")
+	}
+
+	callbackBase := publicURL(r)
+	payload := map[string]any{
+		"transaction_details": map[string]any{
+			"order_id":     orderID,
+			"gross_amount": amount,
+		},
+		"item_details": []map[string]any{
+			{
+				"id":       "tier_" + string(tier),
+				"price":    amount,
+				"quantity": 1,
+				"name":     "Undanganku " + tierDisplayName(tier),
+			},
+		},
+		"customer_details": map[string]any{
+			"email": user.Email,
+		},
+		"callbacks": map[string]any{
+			"finish":  fmt.Sprintf("%s/dashboard/billing?order=%s&status=finish", callbackBase, orderID),
+			"pending": fmt.Sprintf("%s/dashboard/billing?order=%s&status=pending", callbackBase, orderID),
+			"error":   fmt.Sprintf("%s/dashboard/billing?order=%s&status=error", callbackBase, orderID),
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return midtransSnapResponse{}, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, midtransSnapEndpoint(), bytes.NewReader(body))
+	if err != nil {
+		return midtransSnapResponse{}, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(serverKey+":")))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return midtransSnapResponse{}, fmt.Errorf("failed to create Midtrans Snap transaction: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return midtransSnapResponse{}, fmt.Errorf("Midtrans Snap rejected checkout (%d): %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var snap midtransSnapResponse
+	if err := json.Unmarshal(respBody, &snap); err != nil {
+		return midtransSnapResponse{}, err
+	}
+	if snap.Token == "" || snap.RedirectURL == "" {
+		return midtransSnapResponse{}, errors.New("Midtrans Snap response is missing token or redirect_url")
+	}
+	return snap, nil
+}
+
+func tierDisplayName(tier tierName) string {
+	switch tier {
+	case tierBusiness:
+		return "Business"
+	case tierPro:
+		return "Pro"
+	case tierCreator:
+		return "Creator"
+	default:
+		return "Free"
+	}
+}
+
+func midtransSnapEndpoint() string {
+	if override := strings.TrimSpace(env("MIDTRANS_SNAP_URL", "")); override != "" {
+		return override
+	}
+	switch strings.ToLower(strings.TrimSpace(env("MIDTRANS_ENV", "sandbox"))) {
+	case "production", "prod", "live":
+		return "https://app.midtrans.com/snap/v1/transactions"
+	default:
+		return "https://app.sandbox.midtrans.com/snap/v1/transactions"
+	}
+}
+
 func publicURL(r *http.Request) string {
 	if configured := strings.TrimRight(env("APP_PUBLIC_URL", ""), "/"); configured != "" {
 		return configured
@@ -425,15 +568,39 @@ func paymentStatusFromGateway(status string) string {
 	}
 }
 
+func paymentStatusFromMidtrans(payload map[string]any) string {
+	status := strings.ToLower(webhookString(payload, "transaction_status"))
+	fraudStatus := strings.ToLower(webhookString(payload, "fraud_status"))
+	if status == "capture" {
+		if fraudStatus == "" || fraudStatus == "accept" {
+			return "paid"
+		}
+		if fraudStatus == "deny" {
+			return "failed"
+		}
+		return "pending"
+	}
+	return paymentStatusFromGateway(status)
+}
+
+func looksLikeMidtransWebhook(payload map[string]any) bool {
+	return webhookString(payload, "signature_key") != "" ||
+		webhookString(payload, "transaction_status") != "" ||
+		webhookString(payload, "gross_amount") != ""
+}
+
 func verifyMidtransSignature(payload map[string]any) bool {
 	serverKey := env("MIDTRANS_SERVER_KEY", "")
 	if serverKey == "" {
-		return true
+		return false
 	}
 	orderID := webhookString(payload, "order_id")
 	statusCode := webhookString(payload, "status_code")
 	grossAmount := webhookString(payload, "gross_amount")
 	signature := webhookString(payload, "signature_key")
+	if orderID == "" || statusCode == "" || grossAmount == "" || signature == "" {
+		return false
+	}
 	sum := sha512.Sum512([]byte(orderID + statusCode + grossAmount + serverKey))
 	return strings.EqualFold(hex.EncodeToString(sum[:]), signature)
 }
