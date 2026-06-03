@@ -28,8 +28,8 @@ export function UserSidebar() {
   };
 
   return (
-    <aside className="w-64 shrink-0 border-r border-border/60 bg-surface/40 min-h-screen sticky top-0 flex flex-col">
-      <div className="px-6 h-16 flex items-center border-b border-border/60">
+    <aside className="w-64 shrink-0 border-r border-border/70 bg-card/90 min-h-screen sticky top-0 flex flex-col shadow-[18px_0_55px_-42px_rgba(15,57,44,0.45)]">
+      <div className="px-6 h-16 flex items-center border-b border-border/70 bg-gradient-to-r from-secondary/90 to-card">
         <Link to="/" className="font-serif text-xl text-gold-gradient">Undanganku</Link>
       </div>
       <nav className="flex-1 p-3 space-y-1">
@@ -48,7 +48,7 @@ export function UserSidebar() {
             <Link
               key={it.to}
               to={it.to as never}
-              className={`${base} ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}
+              className={`${base} ${active ? "bg-secondary text-primary shadow-[inset_3px_0_0_var(--gold)]" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"}`}
             >
               <Icon className="size-4" /> {it.label}
             </Link>
@@ -56,7 +56,7 @@ export function UserSidebar() {
         })}
       </nav>
       <div className="p-3 border-t border-border/60">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/40">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/70">
           <div className="size-9 rounded-full bg-gold-gradient flex items-center justify-center text-primary-foreground font-medium">{initial}</div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate">{user?.displayName || "User"}</div>

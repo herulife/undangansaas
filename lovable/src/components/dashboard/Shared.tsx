@@ -22,10 +22,10 @@ export function Topbar({ title, subtitle, children }: { title: string; subtitle?
 export function StatCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: "gold" | "info" | "success" | "warning" | "danger" }) {
   const accentMap: Record<string, string> = {
     gold: "from-gold/20 to-transparent text-gold",
-    info: "from-sky-500/20 to-transparent text-sky-300",
-    success: "from-emerald-500/20 to-transparent text-emerald-300",
-    warning: "from-amber-500/20 to-transparent text-amber-300",
-    danger: "from-rose-500/20 to-transparent text-rose-300",
+    info: "from-sky-500/18 to-transparent text-sky-700",
+    success: "from-emerald-500/18 to-transparent text-emerald-700",
+    warning: "from-amber-500/20 to-transparent text-amber-700",
+    danger: "from-rose-500/18 to-transparent text-rose-700",
   };
   const grad = accentMap[accent ?? "gold"];
   return (
@@ -40,21 +40,21 @@ export function StatCard({ label, value, hint, accent }: { label: string; value:
 
 export function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    Published: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    Published: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
     Draft: "bg-muted text-muted-foreground border-border",
-    Active: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    Paid: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    Pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-    Failed: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-    Refunded: "bg-purple-500/15 text-purple-300 border-purple-500/30",
-    Paused: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-    Suspended: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    Active: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
+    Paid: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
+    Pending: "bg-amber-500/14 text-amber-700 border-amber-500/25",
+    Failed: "bg-rose-500/12 text-rose-700 border-rose-500/25",
+    Refunded: "bg-purple-500/12 text-purple-700 border-purple-500/25",
+    Paused: "bg-amber-500/14 text-amber-700 border-amber-500/25",
+    Suspended: "bg-rose-500/12 text-rose-700 border-rose-500/25",
     Expired: "bg-muted text-muted-foreground border-border",
-    Sent: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-    Opened: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    Hadir: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    "Tidak Hadir": "bg-rose-500/15 text-rose-300 border-rose-500/30",
-    "Ragu-ragu": "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    Sent: "bg-sky-500/12 text-sky-700 border-sky-500/25",
+    Opened: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
+    Hadir: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
+    "Tidak Hadir": "bg-rose-500/12 text-rose-700 border-rose-500/25",
+    "Ragu-ragu": "bg-amber-500/14 text-amber-700 border-amber-500/25",
   };
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>{status}</span>;
 }

@@ -25,8 +25,8 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-60 shrink-0 bg-[oklch(0.09_0.005_60)] text-foreground border-r border-border/60 min-h-screen sticky top-0 flex flex-col">
-      <div className="px-5 h-16 flex items-center gap-2 border-b border-border/60">
+    <aside className="w-60 shrink-0 bg-card/90 text-foreground border-r border-border/70 min-h-screen sticky top-0 flex flex-col shadow-[18px_0_55px_-42px_rgba(15,57,44,0.45)]">
+      <div className="px-5 h-16 flex items-center gap-2 border-b border-border/70 bg-gradient-to-r from-secondary/90 to-card">
         <Shield className="size-5 text-gold" />
         <span className="font-serif text-lg">Admin Panel</span>
       </div>
@@ -39,8 +39,8 @@ export function AdminSidebar() {
               key={it.to} to={it.to as never}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
                 active
-                  ? "bg-gold/15 text-gold border-l-2 border-gold pl-[10px]"
-                  : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                  ? "bg-secondary text-primary border-l-2 border-gold pl-[10px]"
+                  : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`}
             >
               <Icon className="size-4" /> {it.label}
@@ -48,7 +48,7 @@ export function AdminSidebar() {
           );
         })}
       </nav>
-      <div className="p-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+      <div className="p-3 border-t border-border/70 text-xs text-muted-foreground flex items-center justify-between">
         <span>v1.0.0 - ops</span>
         <button type="button" onClick={handleLogout} aria-label="Keluar" className="hover:text-foreground"><LogOut className="size-4" /></button>
       </div>
