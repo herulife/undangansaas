@@ -9,11 +9,12 @@ import (
 )
 
 type app struct {
-	db *pgxpool.Pool
+	db      *pgxpool.Pool
+	limiter *rateLimiter
 }
 
 func newApp(db *pgxpool.Pool) *app {
-	return &app{db: db}
+	return &app{db: db, limiter: newRateLimiter()}
 }
 
 func (a *app) routes() http.Handler {
@@ -29,8 +30,8 @@ func (a *app) routes() http.Handler {
 	router.Get("/health", a.health)
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/health", a.health)
-		r.Post("/auth/register", a.register)
-		r.Post("/auth/login", a.login)
+		r.With(a.rateLimitMiddleware("auth", 20, 15*60)).Post("/auth/register", a.register)
+		r.With(a.rateLimitMiddleware("auth", 20, 15*60)).Post("/auth/login", a.login)
 		r.With(a.RequireAuth).Get("/auth/me", a.authMe)
 		r.With(a.RequireAuth).Patch("/auth/me", a.updateProfile)
 		r.With(a.RequireAuth).Patch("/auth/password", a.changePassword)
@@ -44,6 +45,7 @@ func (a *app) routes() http.Handler {
 		r.Post("/ai/images", a.generateImage)
 		r.With(a.RequireAuth).Post("/uploads", a.uploadMedia)
 		r.Handle("/uploads/*", http.StripPrefix("/api/uploads/", http.FileServer(http.Dir(uploadDir()))))
+		r.Get("/og/{slug}.svg", a.dynamicOG)
 
 		r.Group(func(r chi.Router) {
 			r.Use(a.RequireAdmin)
@@ -51,6 +53,13 @@ func (a *app) routes() http.Handler {
 			r.Post("/admin/users", a.createAdminUser)
 			r.Patch("/admin/users/{id}", a.updateAdminUser)
 			r.Patch("/admin/users/{id}/password", a.resetAdminUserPassword)
+			r.Get("/admin/orders", a.listAdminOrders)
+			r.Get("/admin/reports", a.adminReports)
+			r.Get("/admin/media", a.listAdminMedia)
+			r.Get("/admin/vouchers", a.listVouchers)
+			r.Post("/admin/vouchers", a.createVoucher)
+			r.Post("/admin/refunds", a.refundPayment)
+			r.Post("/admin/templates", a.createAdminTemplate)
 		})
 	})
 
@@ -62,9 +71,16 @@ func (a *app) routes() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(a.RequireAuth)
 			r.Get("/me/features", a.meFeatures)
+			r.Get("/guests", a.listGuests)
+			r.Post("/guests", a.createGuest)
+			r.Post("/guests/import", a.importGuests)
+			r.Post("/guests/{id}/send", a.sendGuestInvite)
+			r.Post("/payments/checkout", a.createPaymentCheckout)
+			r.Post("/payments/{orderID}/demo-settle", a.demoSettlePayment)
 			r.Put("/invitations/{slug}/publish", a.publishInvitation)
 			r.With(a.RequireTier([]string{featureExportCSV})).Get("/exports/invitations.csv", a.exportInvitationsCSV)
 		})
+		r.Post("/payments/webhook", a.paymentWebhook)
 	})
 
 	return router

@@ -79,7 +79,7 @@ function UndanganList() {
                   </div>
                 </div>
                 <div className="mt-5 flex items-center gap-2 text-xs">
-                  <Link to="/dashboard/buat" className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md hairline px-3 py-2 hover:bg-secondary"><Edit3 className="size-3.5" />Edit</Link>
+                  <a href={`/dashboard/buat?slug=${inv.slug}`} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md hairline px-3 py-2 hover:bg-secondary"><Edit3 className="size-3.5" />Edit</a>
                   <a href={`/u/${inv.slug}`} target="_blank" rel="noreferrer" className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md hairline px-3 py-2 hover:bg-secondary"><Eye className="size-3.5" />Preview</a>
                   <button onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/u/${inv.slug}`)} className="size-9 rounded-md hairline hover:bg-secondary flex items-center justify-center" aria-label="Salin link"><Link2 className="size-3.5" /></button>
                   <Link to="/dashboard/rsvp" className="size-9 rounded-md hairline hover:bg-secondary flex items-center justify-center" aria-label="RSVP"><BarChart3 className="size-3.5" /></Link>

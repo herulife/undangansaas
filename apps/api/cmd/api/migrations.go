@@ -136,6 +136,9 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		create unique index if not exists payments_idempotency_unique on payments (idempotency_key);
 		create index if not exists payments_user_created_at_idx on payments (user_id, created_at desc);
 
+		alter table payments add column if not exists checkout_url text not null default '';
+		alter table payments add column if not exists refunded_at timestamptz;
+
 		do $$
 		begin
 			if not exists (select 1 from pg_constraint where conname = 'payments_provider_check') then
@@ -156,6 +159,79 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 			end if;
 		end $$;
 
+		create table if not exists vouchers (
+			id uuid primary key default gen_random_uuid(),
+			code text not null unique,
+			discount_type text not null default 'percent',
+			discount_value integer not null default 0,
+			quota integer not null default 0,
+			used_count integer not null default 0,
+			expires_at timestamptz,
+			status text not null default 'active',
+			created_at timestamptz not null default now(),
+			updated_at timestamptz not null default now()
+		);
+
+		create index if not exists vouchers_status_expires_idx on vouchers (status, expires_at);
+
+		do $$
+		begin
+			if not exists (select 1 from pg_constraint where conname = 'vouchers_discount_type_check') then
+				alter table vouchers add constraint vouchers_discount_type_check
+					check (discount_type in ('percent', 'fixed'));
+			end if;
+			if not exists (select 1 from pg_constraint where conname = 'vouchers_status_check') then
+				alter table vouchers add constraint vouchers_status_check
+					check (status in ('active', 'paused', 'expired'));
+			end if;
+			if not exists (select 1 from pg_constraint where conname = 'vouchers_value_check') then
+				alter table vouchers add constraint vouchers_value_check
+					check (discount_value >= 0 and quota >= 0 and used_count >= 0);
+			end if;
+		end $$;
+
+		create table if not exists guests (
+			id uuid primary key default gen_random_uuid(),
+			user_id uuid not null references users(id) on delete cascade,
+			invitation_id uuid not null references invitations(id) on delete cascade,
+			name text not null,
+			phone text not null default '',
+			status text not null default 'draft',
+			personal_url text not null default '',
+			sent_at timestamptz,
+			opened_at timestamptz,
+			created_at timestamptz not null default now(),
+			updated_at timestamptz not null default now()
+		);
+
+		create index if not exists guests_user_created_idx on guests (user_id, created_at desc);
+		create index if not exists guests_invitation_status_idx on guests (invitation_id, status);
+		create unique index if not exists guests_invitation_phone_unique
+			on guests (invitation_id, phone)
+			where phone <> '';
+
+		do $$
+		begin
+			if not exists (select 1 from pg_constraint where conname = 'guests_status_check') then
+				alter table guests add constraint guests_status_check
+					check (status in ('draft', 'sent', 'opened', 'failed'));
+			end if;
+		end $$;
+
+		create table if not exists media_assets (
+			id uuid primary key default gen_random_uuid(),
+			user_id uuid references users(id) on delete set null,
+			file_name text not null,
+			url text not null,
+			media_type text not null,
+			provider text not null default 'local',
+			size_bytes bigint not null default 0,
+			created_at timestamptz not null default now()
+		);
+
+		create index if not exists media_assets_created_idx on media_assets (created_at desc);
+		create index if not exists media_assets_user_type_idx on media_assets (user_id, media_type);
+
 		create table if not exists events (
 			id uuid primary key default gen_random_uuid(),
 			user_id uuid references users(id) on delete set null,
@@ -172,13 +248,17 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		create index if not exists events_user_created_at_idx on events (user_id, created_at desc);
 		create index if not exists events_name_created_at_idx on events (event_name, created_at desc);
 
-		do $$
-		begin
-			if not exists (select 1 from pg_constraint where conname = 'events_name_check') then
-				alter table events add constraint events_name_check
-					check (event_name in ('page_view', 'rsvp_submit', 'share_click', 'upgrade_click', 'publish', 'export_csv'));
-			end if;
-		end $$;
+		alter table events drop constraint if exists events_name_check;
+		alter table events add constraint events_name_check
+			check (event_name in ('page_view', 'rsvp_submit', 'share_click', 'upgrade_click', 'publish', 'export_csv', 'guest_opened', 'payment_checkout', 'payment_success', 'whatsapp_send'));
+
+		update users
+		set tier = 'free',
+			tier_expires_at = null,
+			updated_at = now()
+		where tier <> 'free'
+			and tier_expires_at is not null
+			and tier_expires_at < now() - interval '3 days';
 
 		insert into users (email, display_name, password_hash, role, tier, tier_expires_at, is_b2b, client_limit, status)
 		values
@@ -255,6 +335,18 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 			assets_url = excluded.assets_url,
 			preview_url = excluded.preview_url,
 			is_active = excluded.is_active,
+			updated_at = now();
+
+		insert into vouchers (code, discount_type, discount_value, quota, expires_at, status)
+		values
+			('LAUNCH20', 'percent', 20, 500, now() + interval '90 days', 'active'),
+			('WO-BUSINESS', 'fixed', 50000, 200, now() + interval '180 days', 'active')
+		on conflict (code) do update
+		set discount_type = excluded.discount_type,
+			discount_value = excluded.discount_value,
+			quota = excluded.quota,
+			expires_at = excluded.expires_at,
+			status = excluded.status,
 			updated_at = now();
 
 		insert into invitations (template_id, slug, couple, event_date, status)

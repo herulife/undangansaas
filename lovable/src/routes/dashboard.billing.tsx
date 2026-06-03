@@ -1,12 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Topbar, StatusPill } from "@/components/dashboard/Shared";
 import { Check } from "lucide-react";
+import { useState } from "react";
 import { useTierGate } from "@/hooks/use-tier-gate";
+import { createPaymentCheckout, demoSettlePayment, trackEvent, type AuthUser, type PaymentCheckoutResponse } from "@/lib/api";
 
-const invoices = [
-  { id: "INV-2026-001", item: "Upgrade Pro · Rara & Dimas", amount: "Rp199.000", date: "12 Mar 2026", status: "Paid" },
-  { id: "INV-2026-002", item: "Upgrade Creator · Sari & Bagus", amount: "Rp99.000", date: "01 Apr 2026", status: "Paid" },
-  { id: "INV-2026-003", item: "Top-up galeri 10 foto", amount: "Rp25.000", date: "10 May 2026", status: "Paid" },
+const rupiah = (n: number) => "Rp" + n.toLocaleString("id-ID");
+
+const plans: Array<{
+  name: string;
+  key: AuthUser["tier"];
+  price: string;
+  note: string;
+  checkoutTier?: "creator" | "pro" | "business";
+}> = [
+  { name: "Free", key: "free", price: "Rp0", note: "Watermark, 3 foto, RSVP 50" },
+  { name: "Creator", key: "creator", price: "Rp39k", note: "Tanpa watermark, CSV, 15 foto", checkoutTier: "creator" },
+  { name: "Pro", key: "pro", price: "Rp79k", note: "Custom domain, OG, galeri unlimited", checkoutTier: "pro" },
+  { name: "Business", key: "business", price: "Rp199k/bln", note: "White-label, API, client dashboard", checkoutTier: "business" },
 ];
 
 export const Route = createFileRoute("/dashboard/billing")({
@@ -15,14 +26,48 @@ export const Route = createFileRoute("/dashboard/billing")({
 
 function BillingPage() {
   const tierGate = useTierGate();
+  const [voucherCode, setVoucherCode] = useState("");
+  const [busyTier, setBusyTier] = useState<AuthUser["tier"] | "">("");
+  const [message, setMessage] = useState("");
+  const [history, setHistory] = useState<PaymentCheckoutResponse[]>([]);
   const activeTier = tierGate.tier;
   const tierExpiresAt = tierGate.data?.tierExpiresAt
     ? new Date(tierGate.data.tierExpiresAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
     : "Tidak ada tanggal expired";
 
+  const handleUpgrade = async (tier: "creator" | "pro" | "business") => {
+    setBusyTier(tier);
+    setMessage("Membuat invoice pembayaran...");
+    try {
+      const checkout = await createPaymentCheckout({
+        tier,
+        provider: "manual",
+        voucherCode: voucherCode.trim() || undefined,
+      });
+      setHistory((items) => [checkout, ...items]);
+      void trackEvent({ eventName: "upgrade_click", properties: { tier, amountIdr: checkout.amountIdr } }).catch(() => undefined);
+
+      if (checkout.demoSettleAllowed) {
+        setMessage("Mode demo aktif, memproses settlement otomatis...");
+        await demoSettlePayment(checkout.orderId);
+        await tierGate.reload();
+        setHistory((items) => items.map((item) => (item.orderId === checkout.orderId ? { ...item, status: "paid" } : item)));
+        setMessage(`Paket ${tier} aktif. Tier sudah diperbarui dari backend.`);
+        return;
+      }
+
+      setMessage("Redirect ke halaman pembayaran...");
+      window.location.href = checkout.checkoutUrl;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Gagal membuat pembayaran.");
+    } finally {
+      setBusyTier("");
+    }
+  };
+
   return (
     <>
-      <Topbar title="Billing & Paket" subtitle={tierGate.error || "Kelola paket, invoice, dan batas fitur"} />
+      <Topbar title="Billing & Paket" subtitle={message || tierGate.error || "Kelola paket, invoice, dan batas fitur"} />
       <div className="p-6 space-y-6">
         <div className="rounded-2xl p-6 bg-card hairline relative overflow-hidden">
           <div className="absolute inset-0 -z-10" style={{ backgroundImage: "var(--gradient-hero)" }} />
@@ -34,28 +79,44 @@ function BillingPage() {
                 {tierGate.loading ? "Memuat paket..." : `Berlaku sampai ${tierExpiresAt}`}
               </p>
             </div>
-            <div className="flex gap-2">
-              <button className="rounded-full hairline px-4 py-2 text-sm hover:bg-secondary">Kelola Auto-renew</button>
-              <button className="rounded-full bg-gold-gradient text-primary-foreground px-5 py-2 text-sm shadow-gold">Upgrade ke Business</button>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={voucherCode}
+                onChange={(event) => setVoucherCode(event.target.value.toUpperCase())}
+                placeholder="Kode voucher"
+                className="w-36 rounded-full hairline bg-transparent px-4 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={() => handleUpgrade("business")}
+                disabled={busyTier === "business" || activeTier === "business"}
+                className="rounded-full bg-gold-gradient text-primary-foreground px-5 py-2 text-sm shadow-gold disabled:opacity-50"
+              >
+                Upgrade ke Business
+              </button>
             </div>
           </div>
         </div>
 
         <div className="grid md:grid-cols-4 gap-4">
-          {[
-            { name: "Free", key: "free", price: "Rp0", note: "Watermark, 3 foto, RSVP 50" },
-            { name: "Creator", key: "creator", price: "Rp39k", note: "Tanpa watermark, CSV, 15 foto" },
-            { name: "Pro", key: "pro", price: "Rp79k", note: "Custom domain, OG, galeri unlimited" },
-            { name: "Business", key: "business", price: "Rp199k/bln", note: "White-label, API, client dashboard" },
-          ].map((t) => (
-            <div key={t.name} className={`rounded-2xl p-5 ${activeTier === t.key ? "bg-card ring-1 ring-gold/40" : "bg-card hairline"}`}>
+          {plans.map((plan) => (
+            <div key={plan.name} className={`rounded-2xl p-5 ${activeTier === plan.key ? "bg-card ring-1 ring-gold/40" : "bg-card hairline"}`}>
               <div className="flex items-center justify-between">
-                <h3 className="font-serif text-xl">{t.name}</h3>
-                {activeTier === t.key && <span className="text-xs text-gold inline-flex items-center gap-1"><Check className="size-3" />Aktif</span>}
+                <h3 className="font-serif text-xl">{plan.name}</h3>
+                {activeTier === plan.key && (
+                  <span className="text-xs text-gold inline-flex items-center gap-1">
+                    <Check className="size-3" />Aktif
+                  </span>
+                )}
               </div>
-              <p className="font-serif text-2xl mt-2">{t.price}</p>
-              <p className="mt-1 min-h-10 text-xs text-muted-foreground">{t.note}</p>
-              <button disabled={activeTier === t.key} className="mt-4 w-full rounded-md hairline px-3 py-2 text-sm disabled:opacity-50">{activeTier === t.key ? "Paket Aktif" : "Pilih"}</button>
+              <p className="font-serif text-2xl mt-2">{plan.price}</p>
+              <p className="mt-1 min-h-10 text-xs text-muted-foreground">{plan.note}</p>
+              <button
+                disabled={activeTier === plan.key || !plan.checkoutTier || busyTier === plan.key}
+                onClick={() => plan.checkoutTier && handleUpgrade(plan.checkoutTier)}
+                className="mt-4 w-full rounded-md hairline px-3 py-2 text-sm disabled:opacity-50"
+              >
+                {activeTier === plan.key ? "Paket Aktif" : busyTier === plan.key ? "Memproses..." : plan.checkoutTier ? "Pilih" : "Gratis"}
+              </button>
             </div>
           ))}
         </div>
@@ -67,13 +128,20 @@ function BillingPage() {
               <tr><th className="text-left px-6 py-3">No.</th><th className="text-left px-6 py-3">Item</th><th className="text-left px-6 py-3">Tanggal</th><th className="text-left px-6 py-3">Total</th><th className="text-left px-6 py-3">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {invoices.map((i) => (
-                <tr key={i.id} className="hover:bg-secondary/30">
-                  <td className="px-6 py-3 font-mono text-xs">{i.id}</td>
-                  <td className="px-6 py-3">{i.item}</td>
-                  <td className="px-6 py-3 text-muted-foreground">{i.date}</td>
-                  <td className="px-6 py-3 font-medium">{i.amount}</td>
-                  <td className="px-6 py-3"><StatusPill status={i.status} /></td>
+              {history.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    Belum ada invoice sesi ini. Order lama bisa dilihat admin di menu Orders.
+                  </td>
+                </tr>
+              )}
+              {history.map((item) => (
+                <tr key={item.orderId} className="hover:bg-secondary/30">
+                  <td className="px-6 py-3 font-mono text-xs">{item.orderId}</td>
+                  <td className="px-6 py-3 capitalize">Upgrade {item.tier}</td>
+                  <td className="px-6 py-3 text-muted-foreground">Baru dibuat</td>
+                  <td className="px-6 py-3 font-medium">{rupiah(item.amountIdr)}</td>
+                  <td className="px-6 py-3"><StatusPill status={paymentStatusLabel(item.status)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -82,4 +150,11 @@ function BillingPage() {
       </div>
     </>
   );
+}
+
+function paymentStatusLabel(status: string) {
+  if (status === "paid" || status === "settlement") return "Paid";
+  if (status === "failed" || status === "cancelled") return "Failed";
+  if (status === "expired") return "Expired";
+  return "Pending";
 }

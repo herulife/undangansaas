@@ -8,12 +8,16 @@ import (
 )
 
 var allowedEventNames = map[string]bool{
-	"export_csv":    true,
-	"page_view":     true,
-	"publish":       true,
-	"rsvp_submit":   true,
-	"share_click":   true,
-	"upgrade_click": true,
+	"export_csv":       true,
+	"guest_opened":     true,
+	"page_view":        true,
+	"payment_checkout": true,
+	"payment_success":  true,
+	"publish":          true,
+	"rsvp_submit":      true,
+	"share_click":      true,
+	"upgrade_click":    true,
+	"whatsapp_send":    true,
 }
 
 func (a *app) trackEvent(w http.ResponseWriter, r *http.Request) {

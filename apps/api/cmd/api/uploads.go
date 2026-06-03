@@ -72,9 +72,18 @@ func (a *app) uploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	url := fmt.Sprintf("/api/uploads/%s/%s/%s", mediaType, user.ID, fileName)
+	if _, err := a.db.Exec(r.Context(), `
+		insert into media_assets (user_id, file_name, url, media_type, provider, size_bytes)
+		values ($1, $2, $3, $4, $5, $6)
+	`, user.ID, fileName, url, mediaType, env("STORAGE_PROVIDER", "local"), header.Size); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	writeJSON(w, uploadResponse{
 		FileName: fileName,
-		URL:      fmt.Sprintf("/api/uploads/%s/%s/%s", mediaType, user.ID, fileName),
+		URL:      url,
 		Type:     mediaType,
 	})
 }

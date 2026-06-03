@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
 )
+
+var errRateLimited = errors.New("too many requests, please try again later")
 
 func env(key string, fallback string) string {
 	value := os.Getenv(key)

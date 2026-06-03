@@ -5,14 +5,28 @@ import { formatInvitationDate, getTemplateBySlug, type Invitation, userInvitatio
 import { getInvitation, submitRSVP, trackEvent, type ApiInvitation, type RSVPInput } from "@/lib/api";
 
 export const Route = createFileRoute("/u/$slug")({
-  head: () => ({
-    meta: [
-      { title: "Undangan Digital - Undanganku" },
-      { name: "description", content: "Undangan digital dengan RSVP, galeri, lokasi, musik, gift, dan personalisasi tamu." },
-      { property: "og:title", content: "Undangan Digital - Undanganku" },
-      { property: "og:description", content: "Buka undangan digital premium dari Undanganku." },
-    ],
-  }),
+  head: ({ params, match }) => {
+    const search = match.search as Record<string, unknown>;
+    const guest = typeof search.to === "string" && search.to.trim() ? search.to.trim() : "Tamu Undangan";
+    const title = `Undangan untuk ${guest} - Undanganku`;
+    const description = "Buka undangan digital premium dengan RSVP, galeri, lokasi, musik, gift, dan personalisasi tamu.";
+    const image = `https://cintabuku.site/api/og/${params.slug}.svg?to=${encodeURIComponent(guest)}`;
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: image },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: image },
+      ],
+    };
+  },
   component: InvitationPreview,
 });
 

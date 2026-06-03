@@ -115,6 +115,99 @@ export type UploadResponse = {
   type: "images" | "audio";
 };
 
+export type ApiTemplate = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  configSchema: Record<string, unknown>;
+  tierAccess: string[];
+  assetsUrl: string;
+  previewUrl: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentCheckoutResponse = {
+  amountIdr: number;
+  checkoutUrl: string;
+  demoSettleAllowed: boolean;
+  mode: "demo" | "gateway";
+  orderId: string;
+  provider: "manual" | "midtrans" | "xendit";
+  status: string;
+  tier: AuthUser["tier"];
+};
+
+export type AdminOrder = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  provider: string;
+  providerOrderId: string;
+  tier: AuthUser["tier"];
+  amountIdr: number;
+  currency: string;
+  status: "pending" | "settlement" | "paid" | "failed" | "expired" | "refunded" | "cancelled";
+  checkoutUrl: string;
+  paidAt: string | null;
+  refundedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminReport = {
+  users: number;
+  revenueIdr: number;
+  invitations: number;
+  rsvp: number;
+  events: number;
+  templates: number;
+  chart: Array<{ label: string; value: number }>;
+  tiers: Array<{ label: string; value: number }>;
+};
+
+export type Voucher = {
+  id: string;
+  code: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  quota: number;
+  usedCount: number;
+  expiresAt: string | null;
+  status: "active" | "paused" | "expired";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Guest = {
+  id: string;
+  invitationId: string;
+  invitationSlug: string;
+  invitationTitle: string;
+  name: string;
+  phone: string;
+  status: "draft" | "sent" | "opened" | "failed";
+  personalUrl: string;
+  sentAt: string | null;
+  openedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MediaAsset = {
+  id: string;
+  userId: string | null;
+  fileName: string;
+  url: string;
+  mediaType: "images" | "audio" | string;
+  provider: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 export type GenerateImageResponse = {
   fileName: string;
   provider: string;
@@ -335,10 +428,100 @@ export function listInvitationRSVPs(slug: string) {
   return request<RSVPItem[]>(`/api/invitations/${slug}/rsvps`);
 }
 
+export function listTemplates() {
+  return request<ApiTemplate[]>("/api/templates");
+}
+
 export function publishInvitation(slug: string, payload: PublishInvitationPayload) {
   return request<ApiInvitation>(`/api/v1/invitations/${slug}/publish`, {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export function createPaymentCheckout(payload: { tier: "creator" | "pro" | "business"; provider?: "manual" | "midtrans" | "xendit"; voucherCode?: string }) {
+  return request<PaymentCheckoutResponse>("/api/v1/payments/checkout", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function demoSettlePayment(orderId: string) {
+  return request<AdminOrder>(`/api/v1/payments/${orderId}/demo-settle`, {
+    method: "POST",
+  });
+}
+
+export function listAdminOrders() {
+  return request<AdminOrder[]>("/api/admin/orders");
+}
+
+export function refundPayment(payload: { orderId: string; reason?: string }) {
+  return request<AdminOrder>("/api/admin/refunds", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getAdminReport() {
+  return request<AdminReport>("/api/admin/reports");
+}
+
+export function listAdminVouchers() {
+  return request<Voucher[]>("/api/admin/vouchers");
+}
+
+export function createAdminVoucher(payload: { code: string; discountType: "percent" | "fixed"; discountValue: number; quota: number; expiresAt?: string; status: Voucher["status"] }) {
+  return request<Voucher>("/api/admin/vouchers", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listAdminMedia() {
+  return request<MediaAsset[]>("/api/admin/media");
+}
+
+export function registerAdminTemplate(payload: {
+  name: string;
+  slug: string;
+  category: string;
+  configSchema?: Record<string, unknown>;
+  tierAccess: string[];
+  assetsUrl: string;
+  previewUrl: string;
+  isActive: boolean;
+}) {
+  return request<ApiTemplate>("/api/admin/templates", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listGuests(params?: { invitationSlug?: string }) {
+  const query = new URLSearchParams();
+  if (params?.invitationSlug) query.set("invitationSlug", params.invitationSlug);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<Guest[]>(`/api/v1/guests${suffix}`);
+}
+
+export function createGuest(payload: { invitationSlug: string; name: string; phone: string }) {
+  return request<Guest>("/api/v1/guests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function importGuests(payload: { invitationSlug: string; csv: string }) {
+  return request<Guest[]>("/api/v1/guests/import", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function sendGuestInvite(id: string) {
+  return request<{ guest: Guest; url: string; mode: string }>(`/api/v1/guests/${id}/send`, {
+    method: "POST",
   });
 }
 
@@ -357,7 +540,7 @@ export async function exportInvitationsCsv() {
 }
 
 export function trackEvent(payload: {
-  eventName: "page_view" | "rsvp_submit" | "share_click" | "upgrade_click" | "publish" | "export_csv";
+  eventName: "page_view" | "rsvp_submit" | "share_click" | "upgrade_click" | "publish" | "export_csv" | "guest_opened" | "payment_checkout" | "payment_success" | "whatsapp_send";
   invitationSlug?: string;
   properties?: Record<string, unknown>;
   visitorId?: string;

@@ -13,6 +13,10 @@ import (
 
 func (a *app) createRSVP(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	if !a.allowRate("rsvp:"+normalizeSlug(slug)+":"+clientIP(r), 3, time.Hour) {
+		writeError(w, http.StatusTooManyRequests, errRateLimited)
+		return
+	}
 	var payload rsvpRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Topbar } from "@/components/dashboard/Shared";
 import { invitationTemplates } from "@/lib/templates";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Copy, Eye, Gift, ImagePlus, Loader2, MapPin, Monitor, Music2, Save, Send, Smartphone, Users } from "lucide-react";
-import { generateInvitationImage, publishInvitation, saveInvitation, trackEvent, uploadMedia, type TierFeatureSet } from "@/lib/api";
+import { generateInvitationImage, getInvitation, publishInvitation, saveInvitation, trackEvent, uploadMedia, type TierFeatureSet } from "@/lib/api";
 import { useTierGate } from "@/hooks/use-tier-gate";
 
 export const Route = createFileRoute("/dashboard/buat")({
@@ -63,6 +63,51 @@ function BuatUndangan() {
     dynamicOg: false,
     removeWatermark: false,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const templateParam = params.get("template");
+    const slugParam = params.get("slug");
+
+    if (templateParam && invitationTemplates.some((template) => template.slug === templateParam)) {
+      setData((current) => ({ ...current, templateSlug: templateParam }));
+    }
+
+    if (!slugParam) return;
+    let cancelled = false;
+    setSaveMessage("Memuat data undangan...");
+    getInvitation(slugParam)
+      .then((item) => {
+        if (cancelled) return;
+        const config = item.config ?? {};
+        const gift = typeof config.gift === "object" && config.gift !== null ? config.gift as { bank?: unknown; account?: unknown } : {};
+        const couple = item.couple.split("&").map((value) => value.trim());
+        setData((current) => ({
+          ...current,
+          templateSlug: item.templateSlug,
+          groom: String(config.groom ?? couple[1] ?? current.groom),
+          bride: String(config.bride ?? couple[0] ?? current.bride),
+          date: item.eventDate,
+          akadTime: String(config.akadTime ?? current.akadTime),
+          receptionTime: String(config.receptionTime ?? current.receptionTime),
+          venue: String(config.venue ?? current.venue),
+          city: String(config.city ?? current.city),
+          slug: item.slug,
+          giftBank: String(gift.bank ?? current.giftBank),
+          giftAccount: String(gift.account ?? current.giftAccount),
+          galleryImages: Array.isArray(config.galleryImages) ? config.galleryImages.map(String) : [],
+          musicTrack: String(config.musicTrack ?? current.musicTrack),
+        }));
+        setSaveMessage("Data undangan siap diedit.");
+      })
+      .catch((error) => setSaveMessage(error instanceof Error ? error.message : "Gagal memuat undangan."))
+      .finally(() => setSaved(false));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedTemplate = useMemo(
     () => invitationTemplates.find((template) => template.slug === data.templateSlug) ?? invitationTemplates[0],
