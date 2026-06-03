@@ -1,0 +1,78 @@
+services:
+  cintabuku-undangansaas-db:
+    image: postgres:15-alpine
+    container_name: cintabuku-undangansaas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cintabuku_undangan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-cintabuku_undangan}
+    volumes:
+      - cintabuku_undangansaas_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cintabuku_undangan_user} -d ${POSTGRES_DB:-cintabuku_undangan}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  cintabuku-undangansaas-api:
+    build:
+      context: ./apps/api
+    container_name: cintabuku-undangansaas-api
+    restart: unless-stopped
+    environment:
+      APP_PORT: "8088"
+      DATABASE_URL: postgres://${POSTGRES_USER:-cintabuku_undangan_user}:${POSTGRES_PASSWORD:-change-me}@cintabuku-undangansaas-db:5432/${POSTGRES_DB:-cintabuku_undangan}?sslmode=disable
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://cintabuku.site}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://cintabuku.site,https://www.cintabuku.site}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      AI_IMAGE_PROVIDER: ${AI_IMAGE_PROVIDER:-google}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-gpt-image-1}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_IMAGE_MODEL: ${GOOGLE_IMAGE_MODEL:-imagen-4.0-generate-001}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_IMAGE_ENDPOINT: ${NVIDIA_IMAGE_ENDPOINT:-https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-xl}
+      GENERATED_ASSET_DIR: /app/uploads
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-midtrans}
+      ALLOW_DEMO_PAYMENTS: ${ALLOW_DEMO_PAYMENTS:-true}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      MIDTRANS_SNAP_URL: ${MIDTRANS_SNAP_URL:-}
+      XENDIT_API_KEY: ${XENDIT_API_KEY:-}
+      XENDIT_CALLBACK_TOKEN: ${XENDIT_CALLBACK_TOKEN:-}
+    depends_on:
+      cintabuku-undangansaas-db:
+        condition: service_healthy
+    volumes:
+      - cintabuku_undangansaas_uploads:/app/uploads
+    expose:
+      - "8088"
+    networks:
+      - app-network
+
+  cintabuku-undangansaas-web:
+    build:
+      context: ./lovable
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: cintabuku-undangansaas-web
+    restart: unless-stopped
+    depends_on:
+      - cintabuku-undangansaas-api
+    expose:
+      - "80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
+    name: my-docker-apps_app-network
+
+volumes:
+  cintabuku_undangansaas_db:
+  cintabuku_undangansaas_uploads:
