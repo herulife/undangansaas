@@ -94,7 +94,7 @@ function TamuPage() {
         <button onClick={importCsv} className="inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary"><Upload className="size-4" />Import CSV</button>
         <button onClick={addGuest} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold"><Plus className="size-4" />Tambah Tamu</button>
       </Topbar>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         <div className="rounded-2xl bg-card hairline p-5">
           <div className="grid gap-3 md:grid-cols-4">
             <select value={selectedSlug} onChange={(event) => setSelectedSlug(event.target.value)} className="field">
@@ -110,7 +110,34 @@ function TamuPage() {
         </div>
 
         <div className="rounded-2xl bg-card hairline overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-3 md:hidden">
+            {guests.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted-foreground">Belum ada tamu untuk undangan ini.</div>}
+            {guests.map((guest) => (
+              <article key={guest.id} className="rounded-xl bg-secondary/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{guest.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{guest.phone || "-"}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{guest.invitationTitle}</p>
+                  </div>
+                  <StatusPill status={guestStatusLabel(guest.status)} />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className={guest.openedAt ? "text-xs text-emerald-400" : "text-xs text-muted-foreground"}>
+                    {guest.openedAt ? "Sudah dibuka" : "Belum dibuka"}
+                  </span>
+                  <button
+                    onClick={() => sendInvite(guest)}
+                    disabled={busyGuest === guest.id}
+                    className="inline-flex items-center gap-1 rounded-md bg-gold-gradient px-3 py-2 text-xs text-primary-foreground shadow-gold disabled:opacity-50"
+                  >
+                    <Send className="size-3" />Kirim WA
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary/30 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>

@@ -25,7 +25,7 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-60 shrink-0 bg-[oklch(0.09_0.005_60)] text-foreground border-r border-border/60 min-h-screen sticky top-0 flex flex-col">
+    <aside className="hidden w-60 shrink-0 bg-[oklch(0.09_0.005_60)] text-foreground border-r border-border/60 min-h-screen sticky top-0 flex-col md:flex">
       <div className="px-5 h-16 flex items-center gap-2 border-b border-border/60">
         <Shield className="size-5 text-gold" />
         <span className="font-serif text-lg">Admin Panel</span>

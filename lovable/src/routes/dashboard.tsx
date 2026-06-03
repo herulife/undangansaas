@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { UserSidebar } from "@/components/dashboard/UserSidebar";
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { getAuthToken } from "@/lib/api";
 import { useEffect, useState } from "react";
 
@@ -31,9 +32,10 @@ function DashboardLayout() {
   return (
     <div className="min-h-screen flex">
       <UserSidebar />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pb-24 md:pb-0">
         <Outlet />
       </div>
+      <MobileDashboardNav mode="user" />
     </div>
   );
 }

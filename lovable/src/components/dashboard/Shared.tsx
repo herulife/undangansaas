@@ -2,8 +2,8 @@ import { Bell, Search } from "lucide-react";
 
 export function Topbar({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
   return (
-    <header className="h-16 px-6 border-b border-border/60 flex items-center gap-4 sticky top-0 z-30 bg-background/80 backdrop-blur-xl">
-      <div className="flex-1 min-w-0">
+    <header className="min-h-16 px-4 py-3 md:px-6 md:py-0 border-b border-border/60 flex flex-wrap items-center gap-3 md:gap-4 sticky top-0 z-30 bg-background/80 backdrop-blur-xl">
+      <div className="flex-1 min-w-[12rem]">
         <h1 className="font-serif text-xl truncate">{title}</h1>
         {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
       </div>
@@ -11,10 +11,10 @@ export function Topbar({ title, subtitle, children }: { title: string; subtitle?
         <Search className="size-4 text-muted-foreground" />
         <input placeholder="Cari..." className="bg-transparent outline-none flex-1 text-sm placeholder:text-muted-foreground" />
       </div>
-      <button className="size-9 rounded-full hairline flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Notifikasi">
+      <button className="hidden size-9 rounded-full hairline text-muted-foreground hover:text-foreground sm:flex sm:items-center sm:justify-center" aria-label="Notifikasi">
         <Bell className="size-4" />
       </button>
-      {children}
+      {children && <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 md:w-auto md:pb-0">{children}</div>}
     </header>
   );
 }

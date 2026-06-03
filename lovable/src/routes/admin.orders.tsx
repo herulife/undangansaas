@@ -80,7 +80,7 @@ function OrdersPage() {
       <Topbar title="Orders & Payments" subtitle={message}>
         <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-md hairline px-3 py-2 text-sm hover:bg-secondary"><Download className="size-4" />Export</button>
       </Topbar>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Total Paid" value={rupiah(stats.total)} accent="success" />
           <StatCard label="Pending" value={String(stats.pending)} accent="warning" />
@@ -89,7 +89,37 @@ function OrdersPage() {
         </div>
 
         <div className="rounded-2xl bg-card hairline overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-3 md:hidden">
+            {orders.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted-foreground">Belum ada transaksi.</div>}
+            {orders.map((order) => (
+              <article key={order.id} className="rounded-xl bg-secondary/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-xs text-gold">{order.providerOrderId || order.id}</p>
+                    <p className="mt-1 truncate font-medium">{order.userName || order.userEmail}</p>
+                    <p className="truncate text-xs text-muted-foreground">{order.userEmail}</p>
+                  </div>
+                  <StatusPill status={orderStatusLabel(order.status)} />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <Mini label="Plan" value={order.tier} />
+                  <Mini label="Metode" value={order.provider} />
+                  <Mini label="Total" value={rupiah(order.amountIdr)} />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
+                  <button
+                    onClick={() => handleRefund(order)}
+                    disabled={!["paid", "settlement"].includes(order.status) || busyOrder === order.id}
+                    className="inline-flex items-center gap-1 rounded-md hairline px-3 py-2 text-xs hover:bg-secondary disabled:opacity-40"
+                  >
+                    <RotateCcw className="size-3" />Refund
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary/30 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr><th className="text-left px-6 py-3">No. Order</th><th className="text-left px-6 py-3">User</th><th className="text-left px-6 py-3">Plan</th><th className="text-left px-6 py-3">Metode</th><th className="text-left px-6 py-3">Jumlah</th><th className="text-left px-6 py-3">Status</th><th className="text-left px-6 py-3">Tanggal</th><th className="text-right px-6 py-3">Aksi</th></tr>
@@ -146,4 +176,13 @@ function formatDate(value: string) {
 
 function csvCell(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-background/40 px-2 py-1.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="truncate font-medium capitalize">{value}</p>
+    </div>
+  );
 }

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { AdminSidebar } from "@/components/dashboard/AdminSidebar";
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { clearAuthSession, getAuthToken, getMe } from "@/lib/api";
 import { useEffect, useState } from "react";
 
@@ -55,9 +56,10 @@ function AdminLayout() {
   return (
     <div className="min-h-screen flex">
       <AdminSidebar />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pb-24 md:pb-0">
         <Outlet />
       </div>
+      <MobileDashboardNav mode="admin" />
     </div>
   );
 }

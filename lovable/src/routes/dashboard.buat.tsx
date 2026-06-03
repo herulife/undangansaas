@@ -236,7 +236,7 @@ function BuatUndangan() {
         <button onClick={handlePublish} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold"><Send className="size-4" />Publish</button>
       </Topbar>
 
-      <div className="grid min-h-[calc(100vh-4rem)] grid-cols-12">
+      <div className="grid min-h-[calc(100vh-4rem)] grid-cols-12 pb-36 md:pb-0">
         <aside className="col-span-12 border-r border-border/60 bg-surface/30 p-3 md:col-span-2">
           <div className="grid grid-cols-2 gap-1 md:block md:space-y-1">
             {sections.map((s) => (
@@ -302,6 +302,18 @@ function BuatUndangan() {
             </div>
           </div>
         </section>
+      </div>
+
+      <div className="fixed inset-x-3 bottom-24 z-40 grid grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-card/95 p-2 shadow-elegant backdrop-blur-xl md:hidden">
+        <button onClick={handleSave} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl hairline px-3 text-xs hover:bg-secondary">
+          <Save className="size-4" />Simpan
+        </button>
+        <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl hairline px-3 text-xs hover:bg-secondary">
+          <Eye className="size-4" />Preview
+        </a>
+        <button onClick={handlePublish} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-gold-gradient px-3 text-xs font-medium text-primary-foreground shadow-gold">
+          <Send className="size-4" />Publish
+        </button>
       </div>
     </>
   );

@@ -128,7 +128,7 @@ function UsersPage() {
         </button>
       </Topbar>
 
-      <div className="grid gap-6 p-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-4 p-4 md:gap-6 md:p-6 xl:grid-cols-[1fr_380px]">
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3 hairline">
             <div className="flex min-w-64 flex-1 items-center gap-2 rounded-md bg-secondary/40 px-3 py-2">
@@ -147,7 +147,34 @@ function UsersPage() {
           </div>
 
           <div className="overflow-hidden rounded-lg bg-card hairline">
-            <div className="overflow-x-auto">
+            <div className="space-y-3 p-3 md:hidden">
+              {users.map((user) => (
+                <article key={user.id} className="rounded-lg bg-secondary/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-medium text-gold">{initial(user.displayName, user.email)}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{user.displayName || "-"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                        <StatusPill status={user.status === "active" ? "Active" : "Suspended"} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                        <Mini label="Role" value={user.role} />
+                        <Mini label="Plan" value={user.tier} />
+                        <Mini label="RSVP" value={String(user.rsvpCount)} />
+                      </div>
+                      <button onClick={() => startEdit(user)} className="mt-3 w-full rounded-md hairline px-3 py-2 text-xs text-gold hover:bg-secondary">Detail User</button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {!loading && users.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">Tidak ada user sesuai filter.</div>
+              )}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead className="bg-secondary/30 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
@@ -281,6 +308,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1.5 block text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
       {children}
     </label>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-background/40 px-2 py-1.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="truncate font-medium">{value}</p>
+    </div>
   );
 }
 
