@@ -3,7 +3,8 @@ import { Topbar } from "@/components/dashboard/Shared";
 import { invitationTemplates } from "@/lib/templates";
 import { useMemo, useState } from "react";
 import { CalendarDays, Copy, Eye, Gift, ImagePlus, Loader2, MapPin, Monitor, Music2, Save, Send, Smartphone, Users } from "lucide-react";
-import { generateInvitationImage, saveInvitation, uploadMedia } from "@/lib/api";
+import { generateInvitationImage, publishInvitation, saveInvitation, trackEvent, uploadMedia, type TierFeatureSet } from "@/lib/api";
+import { useTierGate } from "@/hooks/use-tier-gate";
 
 export const Route = createFileRoute("/dashboard/buat")({
   component: BuatUndangan,
@@ -31,9 +32,13 @@ type BuilderData = {
   giftAccount: string;
   galleryImages: string[];
   musicTrack: string;
+  customDomain: string;
+  dynamicOg: boolean;
+  removeWatermark: boolean;
 };
 
 function BuatUndangan() {
+  const tierGate = useTierGate();
   const [active, setActive] = useState("Template");
   const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
   const [saved, setSaved] = useState(false);
@@ -54,6 +59,9 @@ function BuatUndangan() {
     giftAccount: "1234567890",
     galleryImages: [],
     musicTrack: musicOptions[0].value,
+    customDomain: "",
+    dynamicOg: false,
+    removeWatermark: false,
   });
 
   const selectedTemplate = useMemo(
@@ -63,7 +71,9 @@ function BuatUndangan() {
   const previewUrl = `/u/${data.slug}`;
 
   const galleryPreview = data.galleryImages[0] || selectedTemplate.img;
-  const update = (key: keyof BuilderData, value: string | string[]) => {
+  const galleryLimit = tierGate.galleryLimit;
+  const galleryLimitLabel = Number.isFinite(galleryLimit) ? `${galleryLimit} foto` : "unlimited";
+  const update = (key: keyof BuilderData, value: string | string[] | boolean) => {
     setSaved(false);
     setSaveMessage("");
     setData((current) => ({ ...current, [key]: value }));
@@ -72,11 +82,21 @@ function BuatUndangan() {
   const addGalleryImage = (url: string) => {
     setSaved(false);
     setSaveMessage("");
-    setData((current) => ({ ...current, galleryImages: [...current.galleryImages, url].slice(0, 6) }));
+    setData((current) => {
+      const next = [...current.galleryImages, url];
+      return {
+        ...current,
+        galleryImages: Number.isFinite(galleryLimit) ? next.slice(0, galleryLimit) : next,
+      };
+    });
   };
 
   const handleGalleryUpload = async (file: File | undefined) => {
     if (!file) return;
+    if (Number.isFinite(galleryLimit) && data.galleryImages.length >= galleryLimit) {
+      setUploadMessage(`Batas galeri paket ${tierGate.tier} adalah ${galleryLimitLabel}.`);
+      return;
+    }
     setUploadMessage("Mengunggah gambar...");
     try {
       const uploaded = await uploadMedia(file);
@@ -88,6 +108,10 @@ function BuatUndangan() {
   };
 
   const handleGenerateImage = async () => {
+    if (Number.isFinite(galleryLimit) && data.galleryImages.length >= galleryLimit) {
+      setUploadMessage(`Batas galeri paket ${tierGate.tier} adalah ${galleryLimitLabel}.`);
+      return;
+    }
     setGeneratingImage(true);
     setUploadMessage("Generate gambar sesuai template...");
     try {
@@ -116,7 +140,7 @@ function BuatUndangan() {
   const persistInvitation = async (status: "draft" | "published") => {
     const title = `${data.bride} & ${data.groom}`;
     try {
-      await saveInvitation({
+      const savedInvitation = await saveInvitation({
         slug: data.slug,
         title,
         couple: title,
@@ -138,6 +162,20 @@ function BuatUndangan() {
           },
         },
       });
+
+      if (status === "published") {
+        await publishInvitation(savedInvitation.slug, {
+          customDomain: tierGate.features.customDomain ? data.customDomain : "",
+          dynamicOg: tierGate.features.dynamicOg && data.dynamicOg,
+          galleryCount: data.galleryImages.length,
+          removeWatermark: !tierGate.features.watermark || data.removeWatermark,
+        });
+        void trackEvent({
+          eventName: "publish",
+          invitationSlug: savedInvitation.slug,
+          properties: { templateSlug: data.templateSlug, tier: tierGate.tier },
+        }).catch(() => undefined);
+      }
       setSaved(true);
       setSaveMessage(status === "published" ? "Undangan dipublish dan siap dibagikan." : "Draft tersimpan ke database.");
     } catch (error) {
@@ -182,6 +220,9 @@ function BuatUndangan() {
             generatingImage={generatingImage}
             handleGalleryUpload={handleGalleryUpload}
             handleGenerateImage={handleGenerateImage}
+            features={tierGate.features}
+            galleryLimitLabel={galleryLimitLabel}
+            tier={tierGate.tier}
           />
         </section>
 
@@ -230,15 +271,21 @@ function EditorSection({
   generatingImage,
   handleGalleryUpload,
   handleGenerateImage,
+  features,
+  galleryLimitLabel,
+  tier,
 }: {
   active: string;
   data: BuilderData;
   selectedTemplate: (typeof invitationTemplates)[number];
-  update: (key: keyof BuilderData, value: string | string[]) => void;
+  update: (key: keyof BuilderData, value: string | string[] | boolean) => void;
   uploadMessage: string;
   generatingImage: boolean;
   handleGalleryUpload: (file: File | undefined) => void;
   handleGenerateImage: () => void;
+  features: TierFeatureSet;
+  galleryLimitLabel: string;
+  tier: string;
 }) {
   if (active === "Template") {
     return (
@@ -319,6 +366,7 @@ function EditorSection({
           Generate gambar sesuai template
         </button>
         {uploadMessage && <p className="text-sm text-muted-foreground">{uploadMessage}</p>}
+        <p className="text-xs text-muted-foreground">Limit paket {tier}: {galleryLimitLabel}.</p>
         <div className="grid grid-cols-3 gap-3">
           {(data.galleryImages.length ? data.galleryImages : [selectedTemplate.img]).map((url, index) => (
             <div key={`${url}-${index}`} className="aspect-square overflow-hidden rounded-lg bg-secondary hairline">
@@ -354,13 +402,46 @@ function EditorSection({
   }
 
   if (active === "Publish") {
-    const url = `${window.location.origin}/u/${data.slug}`;
+    const origin = typeof window === "undefined" ? "https://cintabuku.site" : window.location.origin;
+    const url = `${origin}/u/${data.slug}`;
     return (
-      <div className="max-w-md rounded-lg bg-card p-5 hairline">
-        <p className="text-sm text-muted-foreground">Link undangan siap dibagikan setelah publish.</p>
-        <div className="mt-4 flex items-center gap-2 rounded-md bg-secondary/40 px-3 py-2 text-sm">
-          <span className="flex-1 truncate">{url}</span>
-          <button onClick={() => navigator.clipboard?.writeText(url)} className="text-gold" aria-label="Salin link"><Copy className="size-4" /></button>
+      <div className="max-w-xl space-y-4">
+        <div className="rounded-lg bg-card p-5 hairline">
+          <p className="text-sm text-muted-foreground">Link undangan siap dibagikan setelah publish.</p>
+          <div className="mt-4 flex items-center gap-2 rounded-md bg-secondary/40 px-3 py-2 text-sm">
+            <span className="flex-1 truncate">{url}</span>
+            <button onClick={() => navigator.clipboard?.writeText(url)} className="text-gold" aria-label="Salin link"><Copy className="size-4" /></button>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-card p-5 hairline">
+          <h3 className="font-serif text-xl">Fitur publish</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Semua pilihan tetap divalidasi ulang oleh backend saat publish.</p>
+          <div className="mt-5 space-y-4">
+            <label className="flex items-start justify-between gap-4 rounded-md bg-secondary/30 p-3">
+              <span>
+                <span className="block text-sm font-medium">Tanpa watermark</span>
+                <span className="text-xs text-muted-foreground">{features.watermark ? "Butuh paket Creator ke atas." : "Aktif otomatis untuk paket kamu."}</span>
+              </span>
+              <input type="checkbox" checked={!features.watermark || data.removeWatermark} disabled readOnly className="mt-1 accent-[oklch(0.78_0.13_80)]" />
+            </label>
+            <label className="flex items-start justify-between gap-4 rounded-md bg-secondary/30 p-3">
+              <span>
+                <span className="block text-sm font-medium">Dynamic OG preview</span>
+                <span className="text-xs text-muted-foreground">Preview WhatsApp dengan nama pasangan dan tamu. Butuh Pro.</span>
+              </span>
+              <input type="checkbox" checked={data.dynamicOg && features.dynamicOg} disabled={!features.dynamicOg} onChange={(event) => update("dynamicOg", event.target.checked)} className="mt-1 accent-[oklch(0.78_0.13_80)]" />
+            </label>
+            <Field label="Custom Domain">
+              <input
+                value={data.customDomain}
+                onChange={(event) => update("customDomain", event.target.value.toLowerCase())}
+                placeholder="contoh: undangan.namadomain.com"
+                disabled={!features.customDomain}
+                className="field disabled:opacity-50"
+              />
+            </Field>
+          </div>
         </div>
       </div>
     );

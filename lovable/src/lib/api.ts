@@ -40,6 +40,46 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type TierFeatureSet = {
+  analytics: "basic" | "full";
+  apiAccess: boolean;
+  activeMonths?: number;
+  bulkCreate: boolean;
+  clientDashboard: boolean;
+  customDomain: boolean;
+  dynamicOg: boolean;
+  exportCsv: boolean;
+  flags: string[];
+  maxGallery: number | null;
+  prioritySupport: boolean;
+  revenueShare: number;
+  rsvpLimit: number;
+  unlimitedGallery: boolean;
+  watermark: boolean;
+  whiteLabel: boolean;
+};
+
+export type MeFeaturesResponse = {
+  userId: string;
+  email: string;
+  role: string;
+  tier: AuthUser["tier"];
+  effectiveTier: AuthUser["tier"];
+  tierExpiresAt: string | null;
+  isExpired: boolean;
+  isInGracePeriod: boolean;
+  isB2b: boolean;
+  clientLimit: number;
+  features: TierFeatureSet;
+};
+
+export type PublishInvitationPayload = {
+  customDomain?: string;
+  dynamicOg?: boolean;
+  galleryCount: number;
+  removeWatermark?: boolean;
+};
+
 export type AdminUser = {
   id: string;
   email: string;
@@ -115,11 +155,13 @@ export function getStoredUser(): AuthUser | null {
 }
 
 export function setAuthSession(session: AuthResponse) {
+  featuresCache = null;
   window.localStorage.setItem(TOKEN_KEY, session.token);
   window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
 }
 
 export function clearAuthSession() {
+  featuresCache = null;
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
 }
@@ -138,10 +180,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? `Request failed: ${response.status}`);
   }
-  if (response.status === 204) {
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
     return undefined as T;
   }
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export function login(email: string, password: string) {
@@ -160,6 +204,19 @@ export function register(email: string, password: string, displayName: string) {
 
 export function getMe() {
   return request<AuthUser>("/api/auth/me");
+}
+
+let featuresCache: { value: MeFeaturesResponse; expiresAt: number } | null = null;
+
+export async function getMeFeatures(options?: { force?: boolean }) {
+  const now = Date.now();
+  if (!options?.force && featuresCache && featuresCache.expiresAt > now) {
+    return featuresCache.value;
+  }
+
+  const value = await request<MeFeaturesResponse>("/api/v1/me/features");
+  featuresCache = { value, expiresAt: now + 5 * 60 * 1000 };
+  return value;
 }
 
 export async function updateProfile(payload: { email: string; displayName: string }) {
@@ -276,4 +333,37 @@ export function submitRSVP(slug: string, payload: RSVPInput) {
 
 export function listInvitationRSVPs(slug: string) {
   return request<RSVPItem[]>(`/api/invitations/${slug}/rsvps`);
+}
+
+export function publishInvitation(slug: string, payload: PublishInvitationPayload) {
+  return request<ApiInvitation>(`/api/v1/invitations/${slug}/publish`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function exportInvitationsCsv() {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}/api/v1/exports/invitations.csv`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error ?? `Export failed: ${response.status}`);
+  }
+  return response.blob();
+}
+
+export function trackEvent(payload: {
+  eventName: "page_view" | "rsvp_submit" | "share_click" | "upgrade_click" | "publish" | "export_csv";
+  invitationSlug?: string;
+  properties?: Record<string, unknown>;
+  visitorId?: string;
+}) {
+  return request<void>("/api/v1/events", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

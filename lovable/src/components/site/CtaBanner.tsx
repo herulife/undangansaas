@@ -11,7 +11,7 @@ export function CtaBanner() {
             Buat undangan pertama gratis. Tidak perlu kartu kredit.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
-            <a href="#daftar" className="inline-flex items-center rounded-full px-6 py-3 text-sm font-medium bg-gold-gradient text-primary-foreground shadow-gold hover:opacity-90 transition">
+            <a href="/register" className="inline-flex items-center rounded-full px-6 py-3 text-sm font-medium bg-gold-gradient text-primary-foreground shadow-gold hover:opacity-90 transition">
               Buat Undangan Gratis
             </a>
             <a href="#template" className="inline-flex items-center rounded-full px-6 py-3 text-sm font-medium hairline hover:bg-secondary transition">

@@ -3,6 +3,12 @@ import { useState } from "react";
 import { register, setAuthSession } from "@/lib/api";
 
 export const Route = createFileRoute("/register")({
+  head: () => ({
+    meta: [
+      { title: "Daftar - Undanganku" },
+      { name: "description", content: "Buat akun Undanganku gratis dan mulai membuat undangan online premium." },
+    ],
+  }),
   component: RegisterPage,
 });
 

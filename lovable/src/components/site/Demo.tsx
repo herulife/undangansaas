@@ -3,9 +3,9 @@ import t4 from "@/assets/tpl-4.jpg";
 import t5 from "@/assets/tpl-5.jpg";
 
 const demos = [
-  { src: t1, name: "Aurelia · Wedding", url: "undanganku.id/aurelia-demo" },
-  { src: t4, name: "Bloom · Floral", url: "undanganku.id/bloom-demo" },
-  { src: t5, name: "Gatsby · Art Deco", url: "undanganku.id/gatsby-demo" },
+  { src: t1, name: "Aurelia - Wedding", url: "cintabuku.site/u/aurelia-demo" },
+  { src: t4, name: "Bloom - Floral", url: "cintabuku.site/u/bloom-demo" },
+  { src: t5, name: "Gatsby - Art Deco", url: "cintabuku.site/u/gatsby-demo" },
 ];
 
 export function Demo() {

@@ -15,11 +15,11 @@ export function Hero() {
             dalam Hitungan Menit.
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl">
-            Pilih template, isi detail acara, dan publish. Bagikan link cantik ke tamu — lengkap
+            Pilih template, isi detail acara, dan publish. Bagikan link cantik ke tamu, lengkap
             dengan RSVP, ucapan, gift, dan galeri foto.
           </p>
           <div className="flex flex-wrap gap-3">
-            <a href="#buat" className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-medium bg-gold-gradient text-primary-foreground shadow-gold hover:opacity-90 transition">
+            <a href="/register" className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-medium bg-gold-gradient text-primary-foreground shadow-gold hover:opacity-90 transition">
               Buat Undangan Sekarang
             </a>
             <a href="#template" className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-medium hairline hover:bg-secondary transition">

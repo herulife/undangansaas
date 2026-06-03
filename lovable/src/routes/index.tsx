@@ -12,9 +12,9 @@ import { Footer } from "@/components/site/Footer";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Undanganku — Buat Undangan Online Premium dalam Hitungan Menit" },
-      { name: "description", content: "Platform undangan digital premium: pilih template, isi detail, publish. RSVP, ucapan, gift, galeri — semua dalam satu link." },
-      { property: "og:title", content: "Undanganku — Undangan Online Premium" },
+      { title: "Undanganku - Buat Undangan Online Premium dalam Hitungan Menit" },
+      { name: "description", content: "Platform undangan digital premium: pilih template, isi detail, publish. RSVP, ucapan, gift, dan galeri dalam satu link." },
+      { property: "og:title", content: "Undanganku - Undangan Online Premium" },
       { property: "og:description", content: "Buat undangan digital mewah untuk wedding & acara spesial dalam hitungan menit." },
     ],
   }),

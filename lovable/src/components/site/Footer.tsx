@@ -20,6 +20,7 @@ export function Footer() {
             <li><a href="#template" className="hover:text-foreground">Template</a></li>
             <li><a href="#harga" className="hover:text-foreground">Harga</a></li>
             <li><a href="#demo" className="hover:text-foreground">Demo</a></li>
+            <li><a href="/dashboard" className="hover:text-foreground">Dashboard</a></li>
           </ul>
         </div>
         <div>
@@ -32,8 +33,8 @@ export function Footer() {
         </div>
       </div>
       <div className="mx-auto max-w-7xl px-6 mt-10 pt-6 border-t border-border/50 text-xs text-muted-foreground flex justify-between flex-wrap gap-2">
-        <span>© 2026 Undanganku. All rights reserved.</span>
-        <span>Made with ✦ in Indonesia</span>
+        <span>(c) 2026 Undanganku. All rights reserved.</span>
+        <span>Made in Indonesia - cintabuku.site</span>
       </div>
     </footer>
   );

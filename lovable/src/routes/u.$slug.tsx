@@ -1,10 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Gift, MapPin, Music2, Pause, Play, Send, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, CalendarDays, Gift, MapPin, Pause, Play, Send, Share2, Users, Volume2, VolumeX } from "lucide-react";
 import { formatInvitationDate, getTemplateBySlug, type Invitation, userInvitations } from "@/lib/invitations";
-import { getInvitation, submitRSVP, type ApiInvitation, type RSVPInput } from "@/lib/api";
+import { getInvitation, submitRSVP, trackEvent, type ApiInvitation, type RSVPInput } from "@/lib/api";
 
 export const Route = createFileRoute("/u/$slug")({
+  head: () => ({
+    meta: [
+      { title: "Undangan Digital - Undanganku" },
+      { name: "description", content: "Undangan digital dengan RSVP, galeri, lokasi, musik, gift, dan personalisasi tamu." },
+      { property: "og:title", content: "Undangan Digital - Undanganku" },
+      { property: "og:description", content: "Buka undangan digital premium dari Undanganku." },
+    ],
+  }),
   component: InvitationPreview,
 });
 
@@ -14,9 +22,16 @@ function InvitationPreview() {
   const [apiInvitation, setApiInvitation] = useState<Invitation | null>(null);
   const invitation = apiInvitation ?? fallbackInvitation;
   const template = getTemplateBySlug(invitation.templateSlug);
-  const invitationMedia = invitation as Invitation & { galleryImages?: string[]; musicTrack?: string };
+  const invitationMedia = invitation as Invitation & { galleryImages?: string[]; gift?: { bank?: string; account?: string }; musicTrack?: string; watermark?: boolean };
   const galleryImages = invitationMedia.galleryImages?.length ? invitationMedia.galleryImages : [invitation.img, template.img, invitation.img];
   const musicLabel = musicTrackLabel(invitationMedia.musicTrack);
+  const musicSrc = musicTrackSource(invitationMedia.musicTrack);
+  const guestName = useMemo(() => {
+    if (typeof window === "undefined") return "Tamu Undangan";
+    return new URLSearchParams(window.location.search).get("to")?.replace(/\+/g, " ").trim() || "Tamu Undangan";
+  }, []);
+  const gift = invitationMedia.gift ?? { bank: "BCA", account: "1234567890" };
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [opened, setOpened] = useState(false);
   const [music, setMusic] = useState(false);
   const [readMode, setReadMode] = useState(false);
@@ -52,6 +67,73 @@ function InvitationPreview() {
     };
   }, [slug, fallbackInvitation]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.title = `${invitation.bride} & ${invitation.groom} untuk ${guestName} - Undanganku`;
+  }, [guestName, invitation.bride, invitation.groom]);
+
+  useEffect(() => {
+    void trackEvent({
+      eventName: "page_view",
+      invitationSlug: slug,
+      properties: { guest: guestName, templateSlug: invitation.templateSlug },
+    }).catch(() => undefined);
+  }, [guestName, invitation.templateSlug, slug]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !musicSrc) return;
+    if (opened && music) {
+      void audio.play().catch(() => setMusic(false));
+      return;
+    }
+    audio.pause();
+  }, [music, musicSrc, opened]);
+
+  useEffect(() => {
+    if (!opened || !readMode || typeof window === "undefined") return;
+
+    const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-read-section]"));
+    let index = Math.max(0, sections.findIndex((section) => section.getBoundingClientRect().top > 24));
+    let timer: number | undefined;
+
+    const scrollNext = () => {
+      if (!sections.length || index >= sections.length) {
+        setReadMode(false);
+        return;
+      }
+      sections[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+      index += 1;
+      timer = window.setTimeout(scrollNext, 5200);
+    };
+
+    timer = window.setTimeout(scrollNext, 1400);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [opened, readMode]);
+
+  const handleOpen = () => {
+    setOpened(true);
+    setReadMode(true);
+    if (musicSrc) setMusic(true);
+  };
+
+  const shareInvitation = async () => {
+    const url = typeof window === "undefined" ? "" : window.location.href;
+    const title = `Undangan ${invitation.bride} & ${invitation.groom}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+      } else {
+        await navigator.clipboard?.writeText(url);
+      }
+      void trackEvent({ eventName: "share_click", invitationSlug: slug, properties: { guest: guestName } }).catch(() => undefined);
+    } catch {
+      // User cancelled native share sheet.
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#18120f] text-[#fff8ed]">
       {!opened && (
@@ -62,12 +144,9 @@ function InvitationPreview() {
             <p className="text-xs uppercase tracking-[0.35em] text-[#e8c77c]">The Wedding of</p>
             <h1 className="mt-4 font-serif text-6xl leading-[0.88] text-[#f4d58a]">{invitation.bride}<br />&<br />{invitation.groom}</h1>
             <p className="mt-5 text-sm text-[#fff8ed]/75">Kepada Bapak/Ibu/Saudara/i</p>
-            <p className="mt-1 font-serif text-2xl">Tamu Undangan</p>
+            <p className="mt-1 font-serif text-2xl">{guestName}</p>
             <button
-              onClick={() => {
-                setOpened(true);
-                setMusic(true);
-              }}
+              onClick={handleOpen}
               className="mt-8 rounded-full bg-[#e8c77c] px-7 py-3 text-sm font-semibold text-[#24170f] shadow-[0_20px_60px_rgba(232,199,124,0.28)]"
             >
               Buka Undangan
@@ -77,7 +156,7 @@ function InvitationPreview() {
       )}
 
       <div className={readMode ? "scroll-smooth" : ""}>
-        <section className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-16 text-center">
+        <section data-read-section className="relative grid min-h-dvh place-items-center overflow-hidden px-6 py-16 text-center">
           <img src={invitation.img} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(232,199,124,0.24),transparent_45%),linear-gradient(to_bottom,rgba(24,18,15,0.25),rgba(24,18,15,0.95))]" />
           <div className="relative mx-auto max-w-md">
@@ -93,7 +172,7 @@ function InvitationPreview() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-4xl px-6 py-16">
+        <section data-read-section className="mx-auto max-w-4xl px-6 py-16">
           <div className="grid gap-4 md:grid-cols-2">
             <EventCard title="Akad Nikah" time={invitation.akadTime} date={formatInvitationDate(invitation.date)} venue={invitation.venue} />
             <EventCard title="Resepsi" time={invitation.receptionTime} date={formatInvitationDate(invitation.date)} venue={invitation.venue} />
@@ -110,7 +189,7 @@ function InvitationPreview() {
           </div>
         </section>
 
-        <section className="bg-[#fff8ed] px-6 py-16 text-[#24170f]">
+        <section data-read-section className="bg-[#fff8ed] px-6 py-16 text-[#24170f]">
           <div className="mx-auto max-w-4xl">
             <p className="text-xs uppercase tracking-[0.3em] text-[#9a6a2f]">Template</p>
             <h2 className="mt-3 font-serif text-4xl">{template.name}</h2>
@@ -124,7 +203,7 @@ function InvitationPreview() {
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-4xl gap-5 px-6 py-16 md:grid-cols-2">
+        <section data-read-section className="mx-auto grid max-w-4xl gap-5 px-6 py-16 md:grid-cols-2">
           <div className="rounded-lg border border-[#e8c77c]/25 bg-white/[0.06] p-5">
             <Users className="size-6 text-[#e8c77c]" />
             <h2 className="mt-4 font-serif text-3xl">Konfirmasi Kehadiran</h2>
@@ -144,6 +223,10 @@ function InvitationPreview() {
             <button
               onClick={async () => {
                 setRsvpError("");
+                if (!rsvp.name.trim()) {
+                  setRsvpError("Nama tamu wajib diisi.");
+                  return;
+                }
                 try {
                   await submitRSVP(invitation.slug, {
                     name: rsvp.name,
@@ -151,6 +234,11 @@ function InvitationPreview() {
                     status: rsvp.status,
                     guests: Number(rsvp.guests) || 1,
                   });
+                  void trackEvent({
+                    eventName: "rsvp_submit",
+                    invitationSlug: invitation.slug,
+                    properties: { status: rsvp.status, guests: Number(rsvp.guests) || 1 },
+                  }).catch(() => undefined);
                   setRsvpSent(true);
                 } catch (error) {
                   setRsvpError(error instanceof Error ? error.message : "Gagal mengirim RSVP");
@@ -168,8 +256,8 @@ function InvitationPreview() {
             <h2 className="mt-4 font-serif text-3xl">Kado Pernikahan</h2>
             <p className="mt-2 text-sm text-[#fff8ed]/70">Doa restu adalah hadiah terbaik. Fitur gift bisa diaktifkan dari builder.</p>
             <div className="mt-5 rounded-md bg-black/20 p-4 text-sm">
-              <p className="text-[#fff8ed]/55">BCA</p>
-              <p className="font-medium">1234567890 a.n. {invitation.bride}</p>
+              <p className="text-[#fff8ed]/55">{gift.bank || "Bank"}</p>
+              <p className="font-medium">{gift.account || "-"} a.n. {invitation.bride}</p>
             </div>
           </div>
         </section>
@@ -179,13 +267,30 @@ function InvitationPreview() {
         </footer>
       </div>
 
+      <audio ref={audioRef} src={musicSrc} preload="none" loop />
+
+      {invitationMedia.watermark && (
+        <a
+          href="/"
+          className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[#e8c77c]/25 bg-[#18120f]/85 px-4 py-2 text-[11px] text-[#fff8ed]/70 shadow-2xl backdrop-blur"
+        >
+          Dibuat dengan Undanganku
+        </a>
+      )}
+
       <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#e8c77c]/30 bg-[#18120f]/85 p-2 shadow-2xl backdrop-blur">
-        <button onClick={() => setMusic((value) => !value)} className="grid size-10 place-items-center rounded-full bg-white/10 text-[#e8c77c]" aria-label="Toggle musik">
-          {music ? <Music2 className="size-4" /> : <Pause className="size-4" />}
+        <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="grid size-10 place-items-center rounded-full bg-white/10 text-[#e8c77c]" aria-label="Kembali ke atas">
+          <ArrowUp className="size-4" />
+        </button>
+        <button onClick={() => setMusic((value) => !value)} disabled={!musicSrc} className="grid size-10 place-items-center rounded-full bg-white/10 text-[#e8c77c] disabled:opacity-45" aria-label="Toggle musik">
+          {music ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
         </button>
         <span className="max-w-28 truncate px-2 text-xs text-[#fff8ed]/70">{musicLabel}</span>
         <button onClick={() => setReadMode((value) => !value)} className="grid size-10 place-items-center rounded-full bg-[#e8c77c] text-[#24170f]" aria-label="Toggle auto read">
           {readMode ? <Pause className="size-4" /> : <Play className="size-4" />}
+        </button>
+        <button onClick={shareInvitation} className="grid size-10 place-items-center rounded-full bg-white/10 text-[#e8c77c]" aria-label="Bagikan undangan">
+          <Share2 className="size-4" />
         </button>
       </div>
     </main>
@@ -223,8 +328,10 @@ function fromApiInvitation(item: ApiInvitation, fallback: Invitation): Invitatio
     receptionTime: String(config.receptionTime ?? fallback.receptionTime),
     img: Array.isArray(config.galleryImages) && config.galleryImages[0] ? String(config.galleryImages[0]) : getTemplateBySlug(item.templateSlug).img,
     galleryImages: Array.isArray(config.galleryImages) ? config.galleryImages.map(String) : [],
+    gift: typeof config.gift === "object" && config.gift !== null ? config.gift : undefined,
     musicTrack: String(config.musicTrack ?? "gamelan-jawa"),
-  } as Invitation & { galleryImages: string[]; musicTrack: string };
+    watermark: item.watermark,
+  } as Invitation & { galleryImages: string[]; gift?: { bank?: string; account?: string }; musicTrack: string; watermark: boolean };
 }
 
 function musicTrackLabel(value?: string) {
@@ -238,4 +345,12 @@ function musicTrackLabel(value?: string) {
     default:
       return "Gamelan Jawa Lembut";
   }
+}
+
+function musicTrackSource(value?: string) {
+  if (value === "none") return "";
+  if (value === "acoustic-romantic" || value === "piano-wedding") {
+    return "/templates/adat-jawa-050-klasik-alyssa-rayhan/assets/audio/gending.mp3";
+  }
+  return "/templates/adat-jawa-050-klasik-alyssa-rayhan/assets/audio/gending.mp3";
 }

@@ -2,25 +2,25 @@ const tiers = [
   {
     name: "Free", price: "Rp0", period: "selamanya",
     desc: "Coba dulu, publish undangan sederhana.",
-    features: ["1 undangan aktif", "5 template basic", "RSVP terbatas", "Watermark Undanganku"],
+    features: ["Watermark aktif", "Galeri 3 foto", "RSVP 50 tamu", "Analytics basic"],
     cta: "Mulai Gratis",
   },
   {
-    name: "Creator", price: "Rp99k", period: "/undangan",
+    name: "Creator", price: "Rp39k", period: "/tahun",
     desc: "Cocok untuk acara personal.",
-    features: ["1 undangan premium", "Semua template", "RSVP unlimited", "Galeri 30 foto", "Musik & love story"],
+    features: ["Tanpa watermark", "Galeri 15 foto", "RSVP 300 tamu", "Export CSV", "Aktif 12 bulan"],
     cta: "Pilih Creator",
   },
   {
-    name: "Pro", price: "Rp199k", period: "/undangan", featured: true,
+    name: "Pro", price: "Rp79k", period: "/tahun", featured: true,
     desc: "Paling populer untuk wedding.",
-    features: ["Semua fitur Creator", "Custom domain", "Tanpa watermark", "Maps interaktif", "Gift digital QRIS", "Priority support"],
+    features: ["Semua fitur Creator", "Custom domain", "Dynamic OG", "Galeri unlimited", "Priority support"],
     cta: "Pilih Pro",
   },
   {
-    name: "Business", price: "Rp499k", period: "/bulan",
+    name: "Business", price: "Rp199k", period: "/bulan",
     desc: "Untuk reseller & WO.",
-    features: ["Undangan unlimited", "Sub-akun klien", "White-label brand", "Laporan & analytics", "API akses"],
+    features: ["White-label brand", "Client dashboard", "Bulk create", "API akses", "Revenue share 20%"],
     cta: "Hubungi Sales",
   },
 ];
@@ -57,13 +57,13 @@ export function Pricing() {
               <ul className="mt-6 space-y-2.5 text-sm flex-1">
                 {t.features.map((f) => (
                   <li key={f} className="flex gap-2">
-                    <span className="text-gold mt-0.5">✦</span>
+                    <span className="text-gold mt-0.5">*</span>
                     <span className="text-muted-foreground">{f}</span>
                   </li>
                 ))}
               </ul>
               <a
-                href="#daftar"
+                href="/register"
                 className={`mt-6 inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${
                   t.featured
                     ? "bg-gold-gradient text-primary-foreground hover:opacity-90"

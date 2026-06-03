@@ -14,17 +14,17 @@ function AdminSettings() {
           <h3 className="font-serif text-xl mb-5">Info Brand</h3>
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Nama Platform"><input defaultValue="Undanganku" className="admin-input" /></Field>
-            <Field label="Email Support"><input defaultValue="halo@undanganku.id" className="admin-input" /></Field>
+            <Field label="Email Support"><input defaultValue="halo@cintabuku.site" className="admin-input" /></Field>
             <Field label="WhatsApp CS"><input defaultValue="+62 812-3456-7890" className="admin-input" /></Field>
-            <Field label="Default Domain"><input defaultValue="undanganku.id" className="admin-input" /></Field>
+            <Field label="Default Domain"><input defaultValue="cintabuku.site" className="admin-input" /></Field>
           </div>
         </section>
 
         <section className="rounded-2xl bg-card hairline p-6">
           <h3 className="font-serif text-xl mb-5">Pembayaran</h3>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Midtrans Server Key"><input type="password" defaultValue="••••••••••" className="admin-input" /></Field>
-            <Field label="Xendit API Key"><input type="password" defaultValue="••••••••••" className="admin-input" /></Field>
+            <Field label="Midtrans Server Key"><input type="password" defaultValue="**********" className="admin-input" /></Field>
+            <Field label="Xendit API Key"><input type="password" defaultValue="**********" className="admin-input" /></Field>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             {["QRIS","BCA","Mandiri","BRI","OVO","DANA","GoPay","Credit Card"].map((m) => (

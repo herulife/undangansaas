@@ -180,9 +180,20 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 			end if;
 		end $$;
 
-		insert into users (email, display_name, role, tier, tier_expires_at, is_b2b, client_limit)
-		values ('demo@cintabuku.local', 'Demo User', 'user', 'free', null, false, 1)
-		on conflict do nothing;
+		insert into users (email, display_name, password_hash, role, tier, tier_expires_at, is_b2b, client_limit, status)
+		values
+			('demo@cintabuku.site', 'Demo User', '$2a$10$EfOwFhNMVGOIJFiYEmuvFupjUhH1f/UL02zLdfvxAiipVR.GoVw3y', 'user', 'creator', now() + interval '12 months', false, 1, 'active'),
+			('admin@cintabuku.site', 'Demo Admin', '$2a$10$xX5fph.Vw6OgArniRtc3o.OIkc6VS9QmYrdYIa4fDne0P7DsbEVTC', 'admin', 'business', now() + interval '12 months', true, 50, 'active')
+		on conflict ((lower(email))) do update
+		set display_name = excluded.display_name,
+			password_hash = excluded.password_hash,
+			role = excluded.role,
+			tier = excluded.tier,
+			tier_expires_at = excluded.tier_expires_at,
+			is_b2b = excluded.is_b2b,
+			client_limit = excluded.client_limit,
+			status = excluded.status,
+			updated_at = now();
 
 		insert into templates (name, slug, category, config_schema, tier_access, assets_url, preview_url, is_active)
 		values

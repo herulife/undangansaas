@@ -4,6 +4,12 @@ import { getAuthToken } from "@/lib/api";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/dashboard")({
+  head: () => ({
+    meta: [
+      { title: "Dashboard User - Undanganku" },
+      { name: "description", content: "Kelola undangan digital, tamu, RSVP, template, billing, dan pengaturan akun." },
+    ],
+  }),
   component: DashboardLayout,
 });
 

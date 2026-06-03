@@ -4,6 +4,7 @@ import { formatInvitationDate, getTemplateBySlug, userInvitations, type Invitati
 import { Plus, Eye, Edit3, Link2, Users } from "lucide-react";
 import { getStoredUser, listInvitations, type ApiInvitation } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
+import { useTierGate } from "@/hooks/use-tier-gate";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHome,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/dashboard/")({
 function DashboardHome() {
   const [items, setItems] = useState<Invitation[]>(userInvitations);
   const user = useMemo(() => getStoredUser(), []);
+  const tierGate = useTierGate();
   const totalViews = items.reduce((s, x) => s + x.views, 0);
   const totalRsvp = items.reduce((s, x) => s + x.rsvp, 0);
   const published = items.filter((x) => x.status === "Published").length;
@@ -33,7 +35,7 @@ function DashboardHome() {
           <StatCard label="Undangan Aktif" value={String(published)} hint={`dari ${items.length} total`} accent="gold" />
           <StatCard label="Total Views" value={totalViews.toLocaleString()} hint="+12% minggu ini" accent="info" />
           <StatCard label="RSVP Masuk" value={String(totalRsvp)} hint="184 hadir - 89 tidak" accent="success" />
-          <StatCard label="Paket Aktif" value="Pro" hint="Berakhir 12 Jun 2027" accent="warning" />
+          <StatCard label="Paket Aktif" value={tierGate.tier.toUpperCase()} hint={tierGate.features.watermark ? "Watermark aktif" : "Tanpa watermark"} accent="warning" />
         </div>
 
         <div className="rounded-2xl bg-card hairline p-6 flex flex-wrap items-center justify-between gap-4">

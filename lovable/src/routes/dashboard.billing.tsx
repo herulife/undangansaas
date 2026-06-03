@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Topbar, StatusPill } from "@/components/dashboard/Shared";
 import { Check } from "lucide-react";
+import { useTierGate } from "@/hooks/use-tier-gate";
 
 const invoices = [
   { id: "INV-2026-001", item: "Upgrade Pro · Rara & Dimas", amount: "Rp199.000", date: "12 Mar 2026", status: "Paid" },
@@ -13,17 +14,25 @@ export const Route = createFileRoute("/dashboard/billing")({
 });
 
 function BillingPage() {
+  const tierGate = useTierGate();
+  const activeTier = tierGate.tier;
+  const tierExpiresAt = tierGate.data?.tierExpiresAt
+    ? new Date(tierGate.data.tierExpiresAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
+    : "Tidak ada tanggal expired";
+
   return (
     <>
-      <Topbar title="Billing & Paket" subtitle="Kelola paket dan invoice" />
+      <Topbar title="Billing & Paket" subtitle={tierGate.error || "Kelola paket, invoice, dan batas fitur"} />
       <div className="p-6 space-y-6">
         <div className="rounded-2xl p-6 bg-card hairline relative overflow-hidden">
           <div className="absolute inset-0 -z-10" style={{ backgroundImage: "var(--gradient-hero)" }} />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-widest text-gold">Paket Saat Ini</p>
-              <h2 className="font-serif text-3xl mt-1">Pro</h2>
-              <p className="text-sm text-muted-foreground mt-1">Berakhir 12 Juni 2027 · Auto-renew aktif</p>
+              <h2 className="font-serif text-3xl mt-1 capitalize">{activeTier}</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {tierGate.loading ? "Memuat paket..." : `Berlaku sampai ${tierExpiresAt}`}
+              </p>
             </div>
             <div className="flex gap-2">
               <button className="rounded-full hairline px-4 py-2 text-sm hover:bg-secondary">Kelola Auto-renew</button>
@@ -32,19 +41,21 @@ function BillingPage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-4 gap-4">
           {[
-            { name: "Free", price: "Rp0", current: false },
-            { name: "Creator", price: "Rp99k", current: false },
-            { name: "Pro", price: "Rp199k", current: true },
+            { name: "Free", key: "free", price: "Rp0", note: "Watermark, 3 foto, RSVP 50" },
+            { name: "Creator", key: "creator", price: "Rp39k", note: "Tanpa watermark, CSV, 15 foto" },
+            { name: "Pro", key: "pro", price: "Rp79k", note: "Custom domain, OG, galeri unlimited" },
+            { name: "Business", key: "business", price: "Rp199k/bln", note: "White-label, API, client dashboard" },
           ].map((t) => (
-            <div key={t.name} className={`rounded-2xl p-5 ${t.current ? "bg-card ring-1 ring-gold/40" : "bg-card hairline"}`}>
+            <div key={t.name} className={`rounded-2xl p-5 ${activeTier === t.key ? "bg-card ring-1 ring-gold/40" : "bg-card hairline"}`}>
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-xl">{t.name}</h3>
-                {t.current && <span className="text-xs text-gold inline-flex items-center gap-1"><Check className="size-3" />Aktif</span>}
+                {activeTier === t.key && <span className="text-xs text-gold inline-flex items-center gap-1"><Check className="size-3" />Aktif</span>}
               </div>
               <p className="font-serif text-2xl mt-2">{t.price}</p>
-              <button disabled={t.current} className="mt-4 w-full rounded-md hairline px-3 py-2 text-sm disabled:opacity-50">{t.current ? "Paket Aktif" : "Pilih"}</button>
+              <p className="mt-1 min-h-10 text-xs text-muted-foreground">{t.note}</p>
+              <button disabled={activeTier === t.key} className="mt-4 w-full rounded-md hairline px-3 py-2 text-sm disabled:opacity-50">{activeTier === t.key ? "Paket Aktif" : "Pilih"}</button>
             </div>
           ))}
         </div>

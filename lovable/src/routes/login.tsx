@@ -3,8 +3,19 @@ import { useState } from "react";
 import { login, setAuthSession } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
+  head: () => ({
+    meta: [
+      { title: "Masuk - Undanganku" },
+      { name: "description", content: "Masuk ke dashboard Undanganku untuk mengelola undangan, RSVP, template, dan billing." },
+    ],
+  }),
   component: LoginPage,
 });
+
+const demoAccounts = [
+  { label: "Demo User", email: "demo@cintabuku.site", password: "UserDemo2026!" },
+  { label: "Demo Admin", email: "admin@cintabuku.site", password: "AdminDemo2026!" },
+];
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -20,7 +31,7 @@ function LoginPage() {
     try {
       const session = await login(email, password);
       setAuthSession(session);
-      await navigate({ to: "/dashboard" });
+      await navigate({ to: session.user.role === "admin" ? "/admin" : "/dashboard" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login gagal");
     } finally {
@@ -43,6 +54,22 @@ function LoginPage() {
             <span className="mb-1.5 block text-xs uppercase tracking-widest text-muted-foreground">Password</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="field" required />
           </label>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {demoAccounts.map((account) => (
+            <button
+              key={account.email}
+              type="button"
+              onClick={() => {
+                setEmail(account.email);
+                setPassword(account.password);
+                setError("");
+              }}
+              className="rounded-md hairline px-3 py-2 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              Isi {account.label}
+            </button>
+          ))}
         </div>
         {error && <p className="mt-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         <button disabled={loading} className="mt-6 w-full rounded-full bg-gold-gradient px-5 py-3 text-sm font-medium text-primary-foreground shadow-gold disabled:opacity-60">

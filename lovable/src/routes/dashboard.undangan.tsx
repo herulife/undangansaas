@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Topbar, StatusPill } from "@/components/dashboard/Shared";
 import { formatInvitationDate, getTemplateBySlug, userInvitations, type Invitation } from "@/lib/invitations";
-import { Eye, Edit3, Link2, BarChart3, Plus } from "lucide-react";
-import { listInvitations, type ApiInvitation } from "@/lib/api";
+import { Eye, Edit3, Link2, BarChart3, Plus, Download } from "lucide-react";
+import { exportInvitationsCsv, listInvitations, trackEvent, type ApiInvitation } from "@/lib/api";
 import { useEffect, useState } from "react";
+import { useTierGate } from "@/hooks/use-tier-gate";
 
 export const Route = createFileRoute("/dashboard/undangan")({
   component: UndanganList,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/dashboard/undangan")({
 function UndanganList() {
   const [items, setItems] = useState<Invitation[]>(userInvitations);
   const [subtitle, setSubtitle] = useState(`${userInvitations.length} undangan demo`);
+  const tierGate = useTierGate();
 
   useEffect(() => {
     listInvitations()
@@ -23,9 +25,32 @@ function UndanganList() {
       .catch((error) => setSubtitle(error instanceof Error ? error.message : "Gagal memuat database"));
   }, []);
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportInvitationsCsv();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "undangan.csv";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      void trackEvent({ eventName: "export_csv", properties: { source: "dashboard-undangan" } }).catch(() => undefined);
+    } catch (error) {
+      setSubtitle(error instanceof Error ? error.message : "Gagal export CSV");
+    }
+  };
+
   return (
     <>
       <Topbar title="Undangan Saya" subtitle={subtitle}>
+        <button
+          onClick={handleExport}
+          disabled={!tierGate.features.exportCsv}
+          className="inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary disabled:opacity-45"
+          title={tierGate.features.exportCsv ? "Export CSV" : "Butuh paket Creator ke atas"}
+        >
+          <Download className="size-4" /> Export CSV
+        </button>
         <Link to="/dashboard/buat" className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold">
           <Plus className="size-4" /> Buat Baru
         </Link>

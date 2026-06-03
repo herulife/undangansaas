@@ -4,6 +4,12 @@ import { clearAuthSession, getAuthToken, getMe } from "@/lib/api";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Admin Panel - Undanganku" },
+      { name: "description", content: "Admin panel untuk mengelola user, template, order, voucher, media, dan laporan Undanganku." },
+    ],
+  }),
   component: AdminLayout,
 });
 
