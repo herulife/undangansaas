@@ -28,6 +28,7 @@ const emptySettings: AdminPaymentGatewaySettings = {
 function PaymentGatewayPage() {
   const [settings, setSettings] = useState<AdminPaymentGatewaySettings>(emptySettings);
   const [activeProvider, setActiveProvider] = useState<PaymentProvider>("manual");
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>("midtrans");
   const [demoPaymentsAllowed, setDemoPaymentsAllowed] = useState(true);
   const [manualBankName, setManualBankName] = useState("");
   const [manualAccountNumber, setManualAccountNumber] = useState("");
@@ -57,6 +58,7 @@ function PaymentGatewayPage() {
     const xenditGateway = data.gateways.find((gateway) => gateway.provider === "xendit");
     setSettings(data);
     setActiveProvider(data.activeProvider);
+    setSelectedProvider(providerFromURL() ?? data.activeProvider);
     setDemoPaymentsAllowed(data.demoPaymentsAllowed);
     setManualBankName(manualGateway?.bankName ?? "");
     setManualAccountNumber(manualGateway?.accountNumber ?? "");
@@ -127,6 +129,20 @@ function PaymentGatewayPage() {
     }
   };
 
+  const openTab = (provider: PaymentProvider) => {
+    setSelectedProvider(provider);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("gateway", provider);
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    }
+  };
+
+  const activateSelectedProvider = () => {
+    setActiveProvider(selectedProvider);
+    setMessage(`${providerLabel(selectedProvider)} dipilih sebagai gateway aktif. Klik Simpan untuk menerapkan.`);
+  };
+
   return (
     <>
       <Topbar title="Payment Gateway" subtitle={message}>
@@ -142,53 +158,71 @@ function PaymentGatewayPage() {
       </Topbar>
 
       <div className="space-y-5 p-4 md:p-6">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ProviderCard
-            provider="midtrans"
-            title="Midtrans"
-            icon={CreditCard}
-            activeProvider={activeProvider}
-            configured={Boolean(midtrans?.serverKeySet)}
-            onSelect={setActiveProvider}
-          />
-          <ProviderCard
-            provider="xendit"
-            title="Xendit"
-            icon={WalletCards}
-            activeProvider={activeProvider}
-            configured={Boolean(xendit?.apiKeySet)}
-            onSelect={setActiveProvider}
-          />
-          <ProviderCard
-            provider="manual"
-            title="Manual"
-            icon={Landmark}
-            activeProvider={activeProvider}
-            configured={manualReady}
-            onSelect={setActiveProvider}
-          />
-        </div>
+        <section className="rounded-2xl bg-card p-3 hairline">
+          <div className="grid gap-2 md:grid-cols-3" role="tablist" aria-label="Payment gateway">
+            <GatewayTab
+              provider="midtrans"
+              title="Midtrans"
+              icon={CreditCard}
+              activeProvider={activeProvider}
+              selectedProvider={selectedProvider}
+              configured={Boolean(midtrans?.serverKeySet)}
+              onSelect={openTab}
+            />
+            <GatewayTab
+              provider="xendit"
+              title="Xendit"
+              icon={WalletCards}
+              activeProvider={activeProvider}
+              selectedProvider={selectedProvider}
+              configured={Boolean(xendit?.apiKeySet)}
+              onSelect={openTab}
+            />
+            <GatewayTab
+              provider="manual"
+              title="Manual"
+              icon={Landmark}
+              activeProvider={activeProvider}
+              selectedProvider={selectedProvider}
+              configured={manualReady}
+              onSelect={openTab}
+            />
+          </div>
+        </section>
 
         <section className="rounded-2xl bg-card p-5 hairline">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="font-serif text-xl">Mode Demo</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Settlement otomatis untuk testing internal.</p>
+              <p className="text-xs uppercase tracking-widest text-gold">Gateway Aktif</p>
+              <h2 className="mt-1 font-serif text-2xl">{providerLabel(activeProvider)}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tab terbuka: {providerLabel(selectedProvider)}. Perubahan gateway aktif baru berlaku setelah disimpan.
+              </p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-3 rounded-full bg-secondary/40 px-4 py-2 text-sm">
-              <input
-                type="checkbox"
-                checked={demoPaymentsAllowed}
-                onChange={(event) => setDemoPaymentsAllowed(event.target.checked)}
-                className="size-4 accent-[oklch(0.78_0.13_80)]"
-              />
-              Aktifkan demo
-            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-3 rounded-full bg-secondary/40 px-4 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={demoPaymentsAllowed}
+                  onChange={(event) => setDemoPaymentsAllowed(event.target.checked)}
+                  className="size-4 accent-[oklch(0.78_0.13_80)]"
+                />
+                Mode demo
+              </label>
+              <button
+                type="button"
+                onClick={activateSelectedProvider}
+                disabled={activeProvider === selectedProvider}
+                className="rounded-md hairline px-4 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+              >
+                {activeProvider === selectedProvider ? "Sedang Aktif" : `Jadikan ${providerLabel(selectedProvider)} Aktif`}
+              </button>
+            </div>
           </div>
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-2">
-          <section className="rounded-2xl bg-card p-5 hairline">
+        {selectedProvider === "manual" && (
+          <section className="rounded-2xl bg-card p-5 hairline" role="tabpanel" aria-label="Konfigurasi Manual">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-gold">Manual Transfer / QRIS</p>
@@ -218,8 +252,10 @@ function PaymentGatewayPage() {
               </Field>
             </div>
           </section>
+        )}
 
-          <section className="rounded-2xl bg-card p-5 hairline">
+        {selectedProvider === "midtrans" && (
+          <section className="rounded-2xl bg-card p-5 hairline" role="tabpanel" aria-label="Konfigurasi Midtrans">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-gold">Midtrans Snap</p>
@@ -250,8 +286,10 @@ function PaymentGatewayPage() {
               <WebhookField label="Webhook URL" value={settings.webhooks.midtrans} />
             </div>
           </section>
+        )}
 
-          <section className="rounded-2xl bg-card p-5 hairline">
+        {selectedProvider === "xendit" && (
+          <section className="rounded-2xl bg-card p-5 hairline" role="tabpanel" aria-label="Konfigurasi Xendit">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-gold">Xendit Invoice</p>
@@ -273,7 +311,7 @@ function PaymentGatewayPage() {
               <WebhookField label="Webhook URL" value={settings.webhooks.xendit} />
             </div>
           </section>
-        </div>
+        )}
       </div>
 
       <style>{`.admin-input{width:100%;border-radius:0.5rem;background:color-mix(in oklab, var(--secondary) 40%, transparent);border:1px solid color-mix(in oklab, var(--gold) 22%, transparent);padding:0.625rem 0.75rem;outline:none}.admin-input:focus{box-shadow:0 0 0 1px var(--gold)}`}</style>
@@ -281,11 +319,12 @@ function PaymentGatewayPage() {
   );
 }
 
-function ProviderCard({
+function GatewayTab({
   provider,
   title,
   icon: Icon,
   activeProvider,
+  selectedProvider,
   configured,
   onSelect,
 }: {
@@ -293,24 +332,30 @@ function ProviderCard({
   title: string;
   icon: typeof CreditCard;
   activeProvider: PaymentProvider;
+  selectedProvider: PaymentProvider;
   configured: boolean;
   onSelect: (provider: PaymentProvider) => void;
 }) {
+  const selected = selectedProvider === provider;
   const active = activeProvider === provider;
   return (
     <button
       type="button"
       onClick={() => onSelect(provider)}
-      className={`rounded-2xl p-5 text-left transition hairline ${active ? "bg-gold/10 ring-1 ring-gold/40" : "bg-card hover:bg-secondary/30"}`}
+      role="tab"
+      aria-selected={selected}
+      className={`rounded-xl p-4 text-left transition ${selected ? "bg-gold/10 ring-1 ring-gold/40" : "hover:bg-secondary/40"}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className={`grid size-11 place-items-center rounded-xl ${active ? "bg-gold text-primary" : "bg-secondary/60 text-muted-foreground"}`}>
+      <div className="flex items-center gap-3">
+        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${selected ? "bg-gold text-primary" : "bg-secondary/60 text-muted-foreground"}`}>
           <Icon className="size-5" />
         </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-serif text-xl">{title}</h3>
+          <p className="truncate text-xs text-muted-foreground">{active ? "Gateway aktif" : configured ? "Siap dipilih" : "Belum lengkap"}</p>
+        </div>
         <StatusPill status={active ? "Active" : configured ? "Ready" : "Pending"} />
       </div>
-      <h3 className="mt-4 font-serif text-2xl">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{active ? "Dipakai untuk checkout user." : configured ? "Siap dipilih." : "Key belum lengkap."}</p>
     </button>
   );
 }
@@ -346,4 +391,11 @@ function providerLabel(provider: string) {
   if (provider === "midtrans") return "Midtrans";
   if (provider === "xendit") return "Xendit";
   return "Manual";
+}
+
+function providerFromURL(): PaymentProvider | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("gateway");
+  if (value === "manual" || value === "midtrans" || value === "xendit") return value;
+  return null;
 }
