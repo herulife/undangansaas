@@ -21,7 +21,11 @@ function TamuPage() {
     listInvitations()
       .then((items) => {
         setInvitations(items);
-        setSelectedSlug((current) => current || items[0]?.slug || "");
+        const nextSlug = items[0]?.slug || "";
+        setSelectedSlug((current) => current || nextSlug);
+        if (!nextSlug) {
+          setMessage("Buat undangan dulu sebelum menambah tamu.");
+        }
       })
       .catch((error) => setMessage(error instanceof Error ? error.message : "Gagal memuat undangan"));
   }, []);
@@ -91,13 +95,26 @@ function TamuPage() {
   return (
     <>
       <Topbar title="Tamu Undangan" subtitle={message}>
-        <button onClick={importCsv} className="inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary"><Upload className="size-4" />Import CSV</button>
-        <button onClick={addGuest} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold"><Plus className="size-4" />Tambah Tamu</button>
+        <button
+          onClick={importCsv}
+          disabled={!selectedSlug}
+          className="inline-flex items-center gap-2 rounded-full hairline px-4 py-2 text-sm hover:bg-secondary disabled:opacity-45"
+        >
+          <Upload className="size-4" />Import CSV
+        </button>
+        <button
+          onClick={addGuest}
+          disabled={!selectedSlug}
+          className="inline-flex items-center gap-2 rounded-full bg-gold-gradient text-primary-foreground px-4 py-2 text-sm shadow-gold disabled:opacity-45"
+        >
+          <Plus className="size-4" />Tambah Tamu
+        </button>
       </Topbar>
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         <div className="rounded-2xl bg-card hairline p-5">
           <div className="grid gap-3 md:grid-cols-4">
             <select value={selectedSlug} onChange={(event) => setSelectedSlug(event.target.value)} className="field">
+              {!invitations.length && <option value="">Belum ada undangan</option>}
               {invitations.map((invitation) => (
                 <option key={invitation.id} value={invitation.slug}>{invitation.title}</option>
               ))}

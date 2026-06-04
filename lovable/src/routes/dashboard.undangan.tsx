@@ -19,8 +19,13 @@ function UndanganList() {
     listInvitations()
       .then((data) => {
         const mapped = data.map(toInvitationCard);
-        setItems(mapped.length ? mapped : userInvitations);
-        setSubtitle(`${mapped.length} undangan dari database`);
+        if (mapped.length) {
+          setItems(mapped);
+          setSubtitle(`${mapped.length} undangan dari database`);
+          return;
+        }
+        setItems(userInvitations);
+        setSubtitle("Belum ada undangan database; menampilkan contoh");
       })
       .catch((error) => setSubtitle(error instanceof Error ? error.message : "Gagal memuat database"));
   }, []);
