@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Topbar, StatCard, StatusPill } from "@/components/dashboard/Shared";
-import { Download, RotateCcw } from "lucide-react";
-import { listAdminOrders, refundPayment, type AdminOrder } from "@/lib/api";
+import { CheckCircle2, Download, ExternalLink, RotateCcw } from "lucide-react";
+import { listAdminOrders, refundPayment, verifyManualPayment, type AdminOrder } from "@/lib/api";
 
 const rupiah = (n: number) => "Rp" + n.toLocaleString("id-ID");
 
@@ -48,6 +48,20 @@ function OrdersPage() {
       setMessage("Refund berhasil dicatat.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Gagal refund order.");
+    } finally {
+      setBusyOrder("");
+    }
+  };
+
+  const handleVerifyManual = async (order: AdminOrder) => {
+    setBusyOrder(order.id);
+    setMessage(`Memverifikasi pembayaran manual ${order.providerOrderId || order.id}...`);
+    try {
+      await verifyManualPayment(order.providerOrderId || order.id);
+      await load();
+      setMessage("Pembayaran manual berhasil diverifikasi dan paket user sudah aktif.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Gagal verifikasi pembayaran manual.");
     } finally {
       setBusyOrder("");
     }
@@ -106,15 +120,29 @@ function OrdersPage() {
                   <Mini label="Metode" value={order.provider} />
                   <Mini label="Total" value={rupiah(order.amountIdr)} />
                 </div>
+                {order.proofUrl && (
+                  <a href={order.proofUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-gold underline-offset-4 hover:underline">
+                    <ExternalLink className="size-3" />Lihat bukti bayar
+                  </a>
+                )}
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
-                  <button
-                    onClick={() => handleRefund(order)}
-                    disabled={!["paid", "settlement"].includes(order.status) || busyOrder === order.id}
-                    className="inline-flex items-center gap-1 rounded-md hairline px-3 py-2 text-xs hover:bg-secondary disabled:opacity-40"
-                  >
-                    <RotateCcw className="size-3" />Refund
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleVerifyManual(order)}
+                      disabled={!canVerifyManual(order) || busyOrder === order.id}
+                      className="inline-flex items-center gap-1 rounded-md hairline px-3 py-2 text-xs hover:bg-secondary disabled:opacity-40"
+                    >
+                      <CheckCircle2 className="size-3" />Verifikasi
+                    </button>
+                    <button
+                      onClick={() => handleRefund(order)}
+                      disabled={!["paid", "settlement"].includes(order.status) || busyOrder === order.id}
+                      className="inline-flex items-center gap-1 rounded-md hairline px-3 py-2 text-xs hover:bg-secondary disabled:opacity-40"
+                    >
+                      <RotateCcw className="size-3" />Refund
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
@@ -122,12 +150,12 @@ function OrdersPage() {
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary/30 text-xs uppercase tracking-wider text-muted-foreground">
-                <tr><th className="text-left px-6 py-3">No. Order</th><th className="text-left px-6 py-3">User</th><th className="text-left px-6 py-3">Plan</th><th className="text-left px-6 py-3">Metode</th><th className="text-left px-6 py-3">Jumlah</th><th className="text-left px-6 py-3">Status</th><th className="text-left px-6 py-3">Tanggal</th><th className="text-right px-6 py-3">Aksi</th></tr>
+                <tr><th className="text-left px-6 py-3">No. Order</th><th className="text-left px-6 py-3">User</th><th className="text-left px-6 py-3">Plan</th><th className="text-left px-6 py-3">Metode</th><th className="text-left px-6 py-3">Jumlah</th><th className="text-left px-6 py-3">Status</th><th className="text-left px-6 py-3">Bukti</th><th className="text-left px-6 py-3">Tanggal</th><th className="text-right px-6 py-3">Aksi</th></tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-sm text-muted-foreground">Belum ada transaksi.</td>
+                    <td colSpan={9} className="px-6 py-8 text-center text-sm text-muted-foreground">Belum ada transaksi.</td>
                   </tr>
                 )}
                 {orders.map((order) => (
@@ -141,15 +169,33 @@ function OrdersPage() {
                     <td className="px-6 py-3 capitalize text-muted-foreground">{order.provider}</td>
                     <td className="px-6 py-3 font-medium">{rupiah(order.amountIdr)}</td>
                     <td className="px-6 py-3"><StatusPill status={orderStatusLabel(order.status)} /></td>
+                    <td className="px-6 py-3">
+                      {order.proofUrl ? (
+                        <a href={order.proofUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-gold underline-offset-4 hover:underline">
+                          <ExternalLink className="size-3" />Buka
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-3 text-muted-foreground">{formatDate(order.createdAt)}</td>
                     <td className="px-6 py-3 text-right">
-                      <button
-                        onClick={() => handleRefund(order)}
-                        disabled={!["paid", "settlement"].includes(order.status) || busyOrder === order.id}
-                        className="inline-flex items-center gap-1 rounded-md hairline px-2.5 py-1 text-xs hover:bg-secondary disabled:opacity-40"
-                      >
-                        <RotateCcw className="size-3" />Refund
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleVerifyManual(order)}
+                          disabled={!canVerifyManual(order) || busyOrder === order.id}
+                          className="inline-flex items-center gap-1 rounded-md hairline px-2.5 py-1 text-xs hover:bg-secondary disabled:opacity-40"
+                        >
+                          <CheckCircle2 className="size-3" />Verifikasi
+                        </button>
+                        <button
+                          onClick={() => handleRefund(order)}
+                          disabled={!["paid", "settlement"].includes(order.status) || busyOrder === order.id}
+                          className="inline-flex items-center gap-1 rounded-md hairline px-2.5 py-1 text-xs hover:bg-secondary disabled:opacity-40"
+                        >
+                          <RotateCcw className="size-3" />Refund
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -172,6 +218,10 @@ function orderStatusLabel(status: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function canVerifyManual(order: AdminOrder) {
+  return order.provider === "manual" && order.status === "pending" && Boolean(order.proofUrl);
 }
 
 function csvCell(value: string) {

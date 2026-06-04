@@ -1,9 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Topbar, StatusPill } from "@/components/dashboard/Shared";
-import { Check } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, MessageCircle, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTierGate } from "@/hooks/use-tier-gate";
-import { createPaymentCheckout, demoSettlePayment, trackEvent, type AuthUser, type PaymentCheckoutResponse } from "@/lib/api";
+import {
+  createPaymentCheckout,
+  demoSettlePayment,
+  getPaymentOrder,
+  submitPaymentProof,
+  trackEvent,
+  uploadMedia,
+  type AuthUser,
+  type PaymentCheckoutResponse,
+} from "@/lib/api";
 
 const rupiah = (n: number) => "Rp" + n.toLocaleString("id-ID");
 
@@ -30,10 +39,37 @@ function BillingPage() {
   const [busyTier, setBusyTier] = useState<AuthUser["tier"] | "">("");
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<PaymentCheckoutResponse[]>([]);
+  const [manualOrder, setManualOrder] = useState<PaymentCheckoutResponse | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofNote, setProofNote] = useState("");
+  const [proofBusy, setProofBusy] = useState(false);
   const activeTier = tierGate.tier;
   const tierExpiresAt = tierGate.data?.tierExpiresAt
     ? new Date(tierGate.data.tierExpiresAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
     : "Tidak ada tanggal expired";
+
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get("order");
+    if (!orderId) return;
+    let alive = true;
+    setMessage("Memuat invoice pembayaran...");
+    getPaymentOrder(orderId)
+      .then((order) => {
+        if (!alive) return;
+        setHistory((items) => upsertHistory(order, items));
+        if (order.mode === "manual") {
+          setManualOrder(order);
+          setMessage(order.proofUrl ? "Bukti pembayaran sudah diterima. Menunggu verifikasi admin." : "Invoice manual siap dibayar.");
+        } else {
+          setMessage(`Status pembayaran: ${paymentStatusLabel(order.status)}`);
+        }
+      })
+      .catch((error) => alive && setMessage(error instanceof Error ? error.message : "Gagal memuat invoice."))
+      .finally(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const handleUpgrade = async (tier: "creator" | "pro" | "business") => {
     setBusyTier(tier);
@@ -43,8 +79,15 @@ function BillingPage() {
         tier,
         voucherCode: voucherCode.trim() || undefined,
       });
-      setHistory((items) => [checkout, ...items]);
+      setHistory((items) => upsertHistory(checkout, items));
       void trackEvent({ eventName: "upgrade_click", properties: { tier, amountIdr: checkout.amountIdr } }).catch(() => undefined);
+
+      if (checkout.mode === "manual") {
+        setManualOrder(checkout);
+        setMessage("Invoice manual dibuat. Transfer sesuai instruksi lalu upload bukti pembayaran.");
+        window.history.replaceState(null, "", `/dashboard/billing?order=${encodeURIComponent(checkout.orderId)}&provider=manual`);
+        return;
+      }
 
       if (checkout.demoSettleAllowed) {
         setMessage(`Mode demo aktif untuk ${providerLabel(checkout.provider)}, memproses otomatis...`);
@@ -61,6 +104,32 @@ function BillingPage() {
       setMessage(error instanceof Error ? error.message : "Gagal membuat pembayaran.");
     } finally {
       setBusyTier("");
+    }
+  };
+
+  const handleSubmitProof = async () => {
+    if (!manualOrder) return;
+    if (!proofFile) {
+      setMessage("Pilih gambar bukti pembayaran dulu.");
+      return;
+    }
+    setProofBusy(true);
+    setMessage("Mengupload bukti pembayaran...");
+    try {
+      const upload = await uploadMedia(proofFile);
+      const order = await submitPaymentProof(manualOrder.orderId, {
+        proofUrl: upload.url,
+        note: proofNote.trim() || undefined,
+      });
+      setManualOrder(order);
+      setHistory((items) => upsertHistory(order, items));
+      setMessage("Bukti pembayaran terkirim. Admin akan memverifikasi order ini.");
+      setProofFile(null);
+      setProofNote("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Gagal upload bukti pembayaran.");
+    } finally {
+      setProofBusy(false);
     }
   };
 
@@ -120,6 +189,18 @@ function BillingPage() {
           ))}
         </div>
 
+        {manualOrder && (
+          <ManualPaymentPanel
+            order={manualOrder}
+            proofFile={proofFile}
+            proofNote={proofNote}
+            proofBusy={proofBusy}
+            onProofFile={setProofFile}
+            onProofNote={setProofNote}
+            onSubmitProof={handleSubmitProof}
+          />
+        )}
+
         <div className="rounded-2xl bg-card hairline overflow-hidden">
           <div className="px-6 py-4 border-b border-border/60"><h3 className="font-serif text-lg">Riwayat Invoice</h3></div>
           <table className="w-full text-sm">
@@ -151,6 +232,122 @@ function BillingPage() {
   );
 }
 
+function ManualPaymentPanel({
+  order,
+  proofFile,
+  proofNote,
+  proofBusy,
+  onProofFile,
+  onProofNote,
+  onSubmitProof,
+}: {
+  order: PaymentCheckoutResponse;
+  proofFile: File | null;
+  proofNote: string;
+  proofBusy: boolean;
+  onProofFile: (file: File | null) => void;
+  onProofNote: (value: string) => void;
+  onSubmitProof: () => void;
+}) {
+  const instructions = order.manualInstructions;
+  const whatsAppURL = instructions?.whatsApp ? `https://wa.me/${normalizePhone(instructions.whatsApp)}?text=${encodeURIComponent(`Halo admin, saya sudah melakukan pembayaran order ${order.orderId}.`)}` : "";
+  const canUpload = order.status === "pending";
+
+  return (
+    <section className="rounded-2xl bg-card p-5 hairline">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-gold">Pembayaran Manual</p>
+          <h3 className="mt-1 font-serif text-2xl">Invoice {order.orderId}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Transfer tepat sesuai nominal, lalu upload bukti pembayaran.</p>
+        </div>
+        <div className="text-right">
+          <p className="font-serif text-3xl">{rupiah(order.amountIdr)}</p>
+          <StatusPill status={paymentStatusLabel(order.status)} />
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <div className="space-y-3 rounded-xl bg-secondary/30 p-4">
+          <ManualInfo label="Bank" value={instructions?.bankName || "Belum diatur admin"} />
+          <ManualInfo label="Nomor Rekening" value={instructions?.accountNumber || "Belum diatur admin"} copyable />
+          <ManualInfo label="Nama Pemilik" value={instructions?.accountName || "Belum diatur admin"} />
+          {instructions?.instructions && <p className="rounded-lg bg-background/50 p-3 text-sm text-muted-foreground">{instructions.instructions}</p>}
+          {whatsAppURL && (
+            <a href={whatsAppURL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md hairline px-3 py-2 text-sm hover:bg-secondary">
+              <MessageCircle className="size-4" />Hubungi Admin
+            </a>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {instructions?.qrisUrl && (
+            <div className="rounded-xl bg-secondary/30 p-4">
+              <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">QRIS</p>
+              <img src={instructions.qrisUrl} alt="QRIS pembayaran manual" className="max-h-56 w-full rounded-lg object-contain bg-white p-3" />
+            </div>
+          )}
+          <div className="rounded-xl bg-secondary/30 p-4">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Bukti Pembayaran</p>
+            {order.proofUrl ? (
+              <div className="mt-3 rounded-lg bg-background/50 p-3 text-sm">
+                <p className="font-medium">Bukti sudah dikirim.</p>
+                <a href={order.proofUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-gold underline-offset-4 hover:underline">Lihat bukti pembayaran</a>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={!canUpload || proofBusy}
+                  onChange={(event) => onProofFile(event.target.files?.[0] ?? null)}
+                  className="block w-full rounded-md hairline bg-background/40 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-primary"
+                />
+                {proofFile && <p className="text-xs text-muted-foreground">{proofFile.name}</p>}
+                <textarea
+                  value={proofNote}
+                  disabled={!canUpload || proofBusy}
+                  onChange={(event) => onProofNote(event.target.value)}
+                  placeholder="Catatan opsional, misalnya nama pengirim rekening"
+                  className="w-full rounded-md hairline bg-background/40 px-3 py-2 text-sm outline-none"
+                />
+                <button
+                  onClick={onSubmitProof}
+                  disabled={!canUpload || proofBusy}
+                  className="inline-flex items-center gap-2 rounded-md bg-gold-gradient px-4 py-2 text-sm text-primary-foreground shadow-gold disabled:opacity-50"
+                >
+                  <Upload className="size-4" />{proofBusy ? "Mengupload..." : "Upload Bukti"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ManualInfo({ label, value, copyable }: { label: string; value: string; copyable?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-background/50 p-3">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="truncate font-medium">{value}</p>
+      </div>
+      {copyable && value && !value.includes("Belum") && (
+        <button type="button" onClick={() => navigator.clipboard?.writeText(value)} className="grid size-9 shrink-0 place-items-center rounded-md hairline text-muted-foreground hover:text-foreground" aria-label={`Salin ${label}`}>
+          <Copy className="size-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function upsertHistory(order: PaymentCheckoutResponse, items: PaymentCheckoutResponse[]) {
+  const without = items.filter((item) => item.orderId !== order.orderId);
+  return [order, ...without];
+}
+
 function paymentStatusLabel(status: string) {
   if (status === "paid" || status === "settlement") return "Paid";
   if (status === "failed" || status === "cancelled") return "Failed";
@@ -162,4 +359,8 @@ function providerLabel(provider: string) {
   if (provider === "midtrans") return "Midtrans";
   if (provider === "xendit") return "Xendit";
   return "Manual";
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/[^\d]/g, "").replace(/^0/, "62");
 }

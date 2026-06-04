@@ -134,14 +134,26 @@ export type PaymentCheckoutResponse = {
   checkoutUrl: string;
   demoSettleAllowed: boolean;
   gatewayToken?: string;
-  mode: "demo" | "gateway";
+  manualInstructions?: ManualPaymentInstructions;
+  mode: "demo" | "gateway" | "manual";
   orderId: string;
+  proofUrl?: string;
   provider: "manual" | "midtrans" | "xendit";
   status: string;
   tier: AuthUser["tier"];
+  verifiedAt?: string | null;
 };
 
 export type PaymentProvider = "manual" | "midtrans" | "xendit";
+
+export type ManualPaymentInstructions = {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  qrisUrl: string;
+  whatsApp: string;
+  instructions: string;
+};
 
 export type AdminPaymentGatewayConfig = {
   provider: PaymentProvider;
@@ -154,6 +166,12 @@ export type AdminPaymentGatewayConfig = {
   apiKeySet: boolean;
   callbackTokenSet: boolean;
   endpoint?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  qrisUrl?: string;
+  whatsApp?: string;
+  instructions?: string;
 };
 
 export type AdminPaymentGatewaySettings = {
@@ -166,6 +184,7 @@ export type AdminPaymentGatewaySettings = {
 export type AdminPaymentGatewayPayload = {
   activeProvider: PaymentProvider;
   demoPaymentsAllowed: boolean;
+  manual: ManualPaymentInstructions;
   midtrans: {
     environment: "sandbox" | "production";
     merchantId: string;
@@ -192,8 +211,11 @@ export type AdminOrder = {
   currency: string;
   status: "pending" | "settlement" | "paid" | "failed" | "expired" | "refunded" | "cancelled";
   checkoutUrl: string;
+  proofUrl: string;
+  manualNote: string;
   paidAt: string | null;
   refundedAt: string | null;
+  verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -492,8 +514,25 @@ export function demoSettlePayment(orderId: string) {
   });
 }
 
+export function getPaymentOrder(orderId: string) {
+  return request<PaymentCheckoutResponse>(`/api/v1/payments/${orderId}`);
+}
+
+export function submitPaymentProof(orderId: string, payload: { proofUrl: string; note?: string }) {
+  return request<PaymentCheckoutResponse>(`/api/v1/payments/${orderId}/proof`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function listAdminOrders() {
   return request<AdminOrder[]>("/api/admin/orders");
+}
+
+export function verifyManualPayment(orderId: string) {
+  return request<AdminOrder>(`/api/admin/payments/${orderId}/verify`, {
+    method: "POST",
+  });
 }
 
 export function refundPayment(payload: { orderId: string; reason?: string }) {

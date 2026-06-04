@@ -94,6 +94,12 @@ create unique index if not exists payments_provider_order_unique on payments (pr
 create unique index if not exists payments_idempotency_unique on payments (idempotency_key);
 create index if not exists payments_user_created_at_idx on payments (user_id, created_at desc);
 
+alter table payments add column if not exists checkout_url text not null default '';
+alter table payments add column if not exists refunded_at timestamptz;
+alter table payments add column if not exists proof_url text not null default '';
+alter table payments add column if not exists verified_at timestamptz;
+alter table payments add column if not exists manual_note text not null default '';
+
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'payments_provider_check') then
@@ -130,13 +136,28 @@ create index if not exists events_invitation_created_at_idx on events (invitatio
 create index if not exists events_user_created_at_idx on events (user_id, created_at desc);
 create index if not exists events_name_created_at_idx on events (event_name, created_at desc);
 
-do $$
-begin
-  if not exists (select 1 from pg_constraint where conname = 'events_name_check') then
-    alter table events add constraint events_name_check
-      check (event_name in ('page_view', 'rsvp_submit', 'share_click', 'upgrade_click', 'publish', 'export_csv'));
-  end if;
-end $$;
+alter table events drop constraint if exists events_name_check;
+alter table events add constraint events_name_check
+  check (event_name in ('page_view', 'rsvp_submit', 'share_click', 'upgrade_click', 'publish', 'export_csv', 'guest_opened', 'payment_checkout', 'payment_success', 'whatsapp_send'));
+
+create table if not exists app_settings (
+  key text primary key,
+  value text not null default '',
+  is_secret boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists app_settings_updated_at_idx on app_settings (updated_at desc);
+
+insert into app_settings (key, value, is_secret)
+values
+  ('payment.manual.instructions', 'Transfer sesuai nominal invoice, lalu upload bukti pembayaran. Admin akan memverifikasi dan mengaktifkan paket setelah dana masuk.', false),
+  ('payment.manual.bank_name', '', false),
+  ('payment.manual.account_number', '', false),
+  ('payment.manual.account_name', '', false),
+  ('payment.manual.qris_url', '', false),
+  ('payment.manual.whatsapp', '', false)
+on conflict (key) do nothing;
 
 insert into users (email, display_name, role, tier, tier_expires_at, is_b2b, client_limit)
 values ('demo@cintabuku.local', 'Demo User', 'user', 'free', null, false, 1)

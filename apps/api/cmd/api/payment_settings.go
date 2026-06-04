@@ -19,6 +19,12 @@ const (
 	settingXenditAPIKey              = "payment.xendit.api_key"
 	settingXenditCallbackToken       = "payment.xendit.callback_token"
 	settingXenditInvoiceURL          = "payment.xendit.invoice_url"
+	settingManualInstructions        = "payment.manual.instructions"
+	settingManualBankName            = "payment.manual.bank_name"
+	settingManualAccountNumber       = "payment.manual.account_number"
+	settingManualAccountName         = "payment.manual.account_name"
+	settingManualQRISURL             = "payment.manual.qris_url"
+	settingManualWhatsApp            = "payment.manual.whatsapp"
 	defaultXenditInvoiceEndpoint     = "https://api.xendit.co/v2/invoices"
 	defaultMidtransSandboxSnapURL    = "https://app.sandbox.midtrans.com/snap/v1/transactions"
 	defaultMidtransProductionSnapURL = "https://app.midtrans.com/snap/v1/transactions"
@@ -42,13 +48,29 @@ type adminPaymentGatewayConfig struct {
 	APIKeySet        bool   `json:"apiKeySet"`
 	CallbackTokenSet bool   `json:"callbackTokenSet"`
 	Endpoint         string `json:"endpoint,omitempty"`
+	BankName         string `json:"bankName,omitempty"`
+	AccountNumber    string `json:"accountNumber,omitempty"`
+	AccountName      string `json:"accountName,omitempty"`
+	QRISURL          string `json:"qrisUrl,omitempty"`
+	WhatsApp         string `json:"whatsApp,omitempty"`
+	Instructions     string `json:"instructions,omitempty"`
 }
 
 type adminPaymentGatewaySettingsRequest struct {
 	ActiveProvider      string                   `json:"activeProvider"`
 	DemoPaymentsAllowed bool                     `json:"demoPaymentsAllowed"`
+	Manual              adminManualConfigInput   `json:"manual"`
 	Midtrans            adminMidtransConfigInput `json:"midtrans"`
 	Xendit              adminXenditConfigInput   `json:"xendit"`
+}
+
+type adminManualConfigInput struct {
+	BankName      string `json:"bankName"`
+	AccountNumber string `json:"accountNumber"`
+	AccountName   string `json:"accountName"`
+	QRISURL       string `json:"qrisUrl"`
+	WhatsApp      string `json:"whatsApp"`
+	Instructions  string `json:"instructions"`
 }
 
 type adminMidtransConfigInput struct {
@@ -86,6 +108,12 @@ func (a *app) updateAdminPaymentGateways(w http.ResponseWriter, r *http.Request)
 	values := map[string]settingValue{
 		settingPaymentActiveProvider: {Value: activeProvider},
 		settingPaymentDemoEnabled:    {Value: boolSetting(payload.DemoPaymentsAllowed)},
+		settingManualBankName:        {Value: strings.TrimSpace(payload.Manual.BankName)},
+		settingManualAccountNumber:   {Value: strings.TrimSpace(payload.Manual.AccountNumber)},
+		settingManualAccountName:     {Value: strings.TrimSpace(payload.Manual.AccountName)},
+		settingManualQRISURL:         {Value: strings.TrimSpace(payload.Manual.QRISURL)},
+		settingManualWhatsApp:        {Value: strings.TrimSpace(payload.Manual.WhatsApp)},
+		settingManualInstructions:    {Value: strings.TrimSpace(payload.Manual.Instructions)},
 		settingMidtransEnvironment:   {Value: midtransEnvironment},
 		settingMidtransMerchantID:    {Value: strings.TrimSpace(payload.Midtrans.MerchantID)},
 		settingMidtransClientKey:     {Value: strings.TrimSpace(payload.Midtrans.ClientKey), IsSecret: true},
@@ -119,6 +147,7 @@ func (a *app) adminPaymentGatewaySettings(ctx context.Context, r *http.Request) 
 	midtransEnvironment := normalizeMidtransEnvironment(a.paymentSetting(ctx, settingMidtransEnvironment, env("MIDTRANS_ENV", "sandbox")))
 	midtransSnapURL := a.midtransSnapEndpoint(ctx)
 	xenditInvoiceURL := a.paymentSetting(ctx, settingXenditInvoiceURL, env("XENDIT_INVOICE_URL", defaultXenditInvoiceEndpoint))
+	manual := a.manualPaymentInstructions(ctx)
 
 	return adminPaymentGatewaySettingsResponse{
 		ActiveProvider:      activeProvider,
@@ -129,11 +158,17 @@ func (a *app) adminPaymentGatewaySettings(ctx context.Context, r *http.Request) 
 		},
 		Gateways: []adminPaymentGatewayConfig{
 			{
-				Provider:     "manual",
-				Label:        "Manual / Demo",
-				Environment:  "internal",
-				Enabled:      activeProvider == "manual",
-				ServerKeySet: false,
+				Provider:      "manual",
+				Label:         "Manual Transfer / QRIS",
+				Environment:   "internal",
+				Enabled:       activeProvider == "manual",
+				ServerKeySet:  false,
+				BankName:      manual.BankName,
+				AccountNumber: manual.AccountNumber,
+				AccountName:   manual.AccountName,
+				QRISURL:       manual.QRISURL,
+				WhatsApp:      manual.WhatsApp,
+				Instructions:  manual.Instructions,
 			},
 			{
 				Provider:     "midtrans",

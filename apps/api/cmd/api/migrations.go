@@ -138,6 +138,9 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 
 		alter table payments add column if not exists checkout_url text not null default '';
 		alter table payments add column if not exists refunded_at timestamptz;
+		alter table payments add column if not exists proof_url text not null default '';
+		alter table payments add column if not exists verified_at timestamptz;
+		alter table payments add column if not exists manual_note text not null default '';
 
 		do $$
 		begin
@@ -260,6 +263,16 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		);
 
 		create index if not exists app_settings_updated_at_idx on app_settings (updated_at desc);
+
+		insert into app_settings (key, value, is_secret)
+		values
+			('payment.manual.instructions', 'Transfer sesuai nominal invoice, lalu upload bukti pembayaran. Admin akan memverifikasi dan mengaktifkan paket setelah dana masuk.', false),
+			('payment.manual.bank_name', '', false),
+			('payment.manual.account_number', '', false),
+			('payment.manual.account_name', '', false),
+			('payment.manual.qris_url', '', false),
+			('payment.manual.whatsapp', '', false)
+		on conflict (key) do nothing;
 
 		update users
 		set tier = 'free',

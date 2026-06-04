@@ -25,15 +25,27 @@ type paymentCheckoutRequest struct {
 }
 
 type paymentCheckoutResponse struct {
-	AmountIDR         int    `json:"amountIdr"`
-	CheckoutURL       string `json:"checkoutUrl"`
-	DemoSettleAllowed bool   `json:"demoSettleAllowed"`
-	GatewayToken      string `json:"gatewayToken,omitempty"`
-	Mode              string `json:"mode"`
-	OrderID           string `json:"orderId"`
-	Provider          string `json:"provider"`
-	Status            string `json:"status"`
-	Tier              string `json:"tier"`
+	AmountIDR          int                        `json:"amountIdr"`
+	CheckoutURL        string                     `json:"checkoutUrl"`
+	DemoSettleAllowed  bool                       `json:"demoSettleAllowed"`
+	GatewayToken       string                     `json:"gatewayToken,omitempty"`
+	ManualInstructions *manualPaymentInstructions `json:"manualInstructions,omitempty"`
+	Mode               string                     `json:"mode"`
+	OrderID            string                     `json:"orderId"`
+	ProofURL           string                     `json:"proofUrl,omitempty"`
+	Provider           string                     `json:"provider"`
+	Status             string                     `json:"status"`
+	Tier               string                     `json:"tier"`
+	VerifiedAt         *time.Time                 `json:"verifiedAt,omitempty"`
+}
+
+type manualPaymentInstructions struct {
+	BankName      string `json:"bankName"`
+	AccountNumber string `json:"accountNumber"`
+	AccountName   string `json:"accountName"`
+	QRISURL       string `json:"qrisUrl"`
+	WhatsApp      string `json:"whatsApp"`
+	Instructions  string `json:"instructions"`
 }
 
 type paymentItem struct {
@@ -48,15 +60,24 @@ type paymentItem struct {
 	Currency        string     `json:"currency"`
 	Status          string     `json:"status"`
 	CheckoutURL     string     `json:"checkoutUrl"`
+	ProofURL        string     `json:"proofUrl"`
+	ManualNote      string     `json:"manualNote"`
 	PaidAt          *time.Time `json:"paidAt"`
 	RefundedAt      *time.Time `json:"refundedAt"`
+	VerifiedAt      *time.Time `json:"verifiedAt"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
+	Mode            string     `json:"-"`
 }
 
 type refundRequest struct {
 	OrderID string `json:"orderId"`
 	Reason  string `json:"reason"`
+}
+
+type paymentProofRequest struct {
+	ProofURL string `json:"proofUrl"`
+	Note     string `json:"note"`
 }
 
 type midtransSnapResponse struct {
@@ -107,13 +128,21 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	mode := "demo"
 	checkoutURL := fmt.Sprintf("%s/dashboard/billing?order=%s", publicURL(r), orderID)
 	gatewayToken := ""
+	var manualInstructions *manualPaymentInstructions
 	rawPayload := map[string]any{
 		"mode":              mode,
 		"voucherCode":       voucherCode,
 		"discount":          discount,
 		"requestedProvider": payload.Provider,
 	}
-	if provider == "midtrans" && a.paymentProviderConfigured(r.Context(), provider) && amount > 0 {
+	if provider == "manual" {
+		mode = "manual"
+		checkoutURL = fmt.Sprintf("%s/dashboard/billing?order=%s&provider=manual", publicURL(r), orderID)
+		instructions := a.manualPaymentInstructions(r.Context())
+		manualInstructions = &instructions
+		rawPayload["mode"] = mode
+		rawPayload["manual"] = instructions
+	} else if provider == "midtrans" && a.paymentProviderConfigured(r.Context(), provider) && amount > 0 {
 		snap, err := a.createMidtransSnap(r.Context(), r, user, orderID, tier, amount)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err)
@@ -155,15 +184,16 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	`, user.ID, fmt.Sprintf(`{"tier":%q,"provider":%q,"amountIdr":%d}`, tier, provider, amount))
 
 	writeJSON(w, paymentCheckoutResponse{
-		AmountIDR:         amount,
-		CheckoutURL:       checkoutURL,
-		DemoSettleAllowed: mode == "demo",
-		GatewayToken:      gatewayToken,
-		Mode:              mode,
-		OrderID:           orderID,
-		Provider:          provider,
-		Status:            "pending",
-		Tier:              string(tier),
+		AmountIDR:          amount,
+		CheckoutURL:        checkoutURL,
+		DemoSettleAllowed:  mode == "demo",
+		GatewayToken:       gatewayToken,
+		ManualInstructions: manualInstructions,
+		Mode:               mode,
+		OrderID:            orderID,
+		Provider:           provider,
+		Status:             "pending",
+		Tier:               string(tier),
 	})
 }
 
@@ -185,6 +215,55 @@ func (a *app) demoSettlePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, item)
+}
+
+func (a *app) getPaymentOrder(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	orderID := strings.TrimSpace(chi.URLParam(r, "orderID"))
+	item, err := a.findPayment(r.Context(), orderID, user.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	writeJSON(w, a.checkoutResponseFromPayment(r.Context(), item))
+}
+
+func (a *app) submitPaymentProof(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var payload paymentProofRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid json payload"))
+		return
+	}
+	proofURL := strings.TrimSpace(payload.ProofURL)
+	if proofURL == "" {
+		writeError(w, http.StatusBadRequest, errors.New("proofUrl is required"))
+		return
+	}
+	if !validPaymentProofURL(proofURL) {
+		writeError(w, http.StatusBadRequest, errors.New("proofUrl must be an uploaded image URL"))
+		return
+	}
+
+	orderID := strings.TrimSpace(chi.URLParam(r, "orderID"))
+	raw, _ := json.Marshal(map[string]any{
+		"proofSubmittedAt": time.Now().UTC().Format(time.RFC3339),
+		"proofUrl":         proofURL,
+	})
+	item, err := a.updatePaymentProof(r.Context(), orderID, user.ID, proofURL, strings.TrimSpace(payload.Note), string(raw))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, a.checkoutResponseFromPayment(r.Context(), item))
 }
 
 func (a *app) paymentWebhook(w http.ResponseWriter, r *http.Request) {
@@ -246,8 +325,9 @@ func (a *app) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.db.Query(r.Context(), `
 		select payments.id::text, payments.user_id::text, users.email, users.display_name,
 			payments.provider, payments.provider_order_id, payments.tier, payments.amount_idr,
-			payments.currency, payments.status, payments.checkout_url, payments.paid_at, payments.refunded_at,
-			payments.created_at, payments.updated_at
+			payments.currency, payments.status, payments.checkout_url, payments.proof_url, payments.manual_note,
+			payments.paid_at, payments.refunded_at, payments.verified_at, payments.created_at, payments.updated_at,
+			coalesce(payments.raw_payload->>'mode', '')
 		from payments
 		join users on users.id = payments.user_id
 		order by payments.created_at desc
@@ -262,7 +342,7 @@ func (a *app) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 	items := []paymentItem{}
 	for rows.Next() {
 		var item paymentItem
-		if err := rows.Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.PaidAt, &item.RefundedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.ProofURL, &item.ManualNote, &item.PaidAt, &item.RefundedAt, &item.VerifiedAt, &item.CreatedAt, &item.UpdatedAt, &item.Mode); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
@@ -291,13 +371,150 @@ func (a *app) refundPayment(w http.ResponseWriter, r *http.Request) {
 			updated_at = now(),
 			raw_payload = raw_payload || $2::jsonb
 		where provider_order_id = $1
-		returning id::text, user_id::text, '', '', provider, provider_order_id, tier, amount_idr, currency, status, checkout_url, paid_at, refunded_at, created_at, updated_at
-	`, orderID, fmt.Sprintf(`{"refundReason":%q}`, strings.TrimSpace(payload.Reason))).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.PaidAt, &item.RefundedAt, &item.CreatedAt, &item.UpdatedAt)
+		returning id::text, user_id::text, '', '', provider, provider_order_id, tier, amount_idr, currency,
+			status, checkout_url, proof_url, manual_note, paid_at, refunded_at, verified_at, created_at, updated_at,
+			coalesce(raw_payload->>'mode', '')
+	`, orderID, fmt.Sprintf(`{"refundReason":%q}`, strings.TrimSpace(payload.Reason))).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.ProofURL, &item.ManualNote, &item.PaidAt, &item.RefundedAt, &item.VerifiedAt, &item.CreatedAt, &item.UpdatedAt, &item.Mode)
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("payment not found"))
 		return
 	}
 	writeJSON(w, item)
+}
+
+func (a *app) verifyManualPayment(w http.ResponseWriter, r *http.Request) {
+	orderID := strings.TrimSpace(chi.URLParam(r, "orderID"))
+	if orderID == "" {
+		writeError(w, http.StatusBadRequest, errors.New("order id is required"))
+		return
+	}
+	existing, err := a.findPayment(r.Context(), orderID, "")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if existing.Provider != "manual" {
+		writeError(w, http.StatusBadRequest, errors.New("only manual payments can be verified from admin"))
+		return
+	}
+	if existing.ProofURL == "" {
+		writeError(w, http.StatusBadRequest, errors.New("payment proof is required before verification"))
+		return
+	}
+	if existing.Status == "paid" || existing.Status == "settlement" {
+		writeJSON(w, existing)
+		return
+	}
+	if existing.Status != "pending" {
+		writeError(w, http.StatusBadRequest, errors.New("only pending manual payments can be verified"))
+		return
+	}
+	item, err := a.settlePayment(r.Context(), orderID, "paid", map[string]any{"source": "admin-manual-verify"}, "")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, item)
+}
+
+func (a *app) findPayment(ctx context.Context, orderID string, ownerID string) (paymentItem, error) {
+	if strings.TrimSpace(orderID) == "" {
+		return paymentItem{}, errors.New("order id is required")
+	}
+	var item paymentItem
+	err := a.db.QueryRow(ctx, `
+		select payments.id::text, payments.user_id::text, users.email, users.display_name,
+			payments.provider, payments.provider_order_id, payments.tier, payments.amount_idr,
+			payments.currency, payments.status, payments.checkout_url, payments.proof_url, payments.manual_note,
+			payments.paid_at, payments.refunded_at, payments.verified_at, payments.created_at, payments.updated_at,
+			coalesce(payments.raw_payload->>'mode', '')
+		from payments
+		join users on users.id = payments.user_id
+		where payments.provider_order_id = $1
+			and ($2 = '' or payments.user_id = $2::uuid)
+	`, orderID, ownerID).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.ProofURL, &item.ManualNote, &item.PaidAt, &item.RefundedAt, &item.VerifiedAt, &item.CreatedAt, &item.UpdatedAt, &item.Mode)
+	if err != nil {
+		return paymentItem{}, errors.New("payment not found")
+	}
+	return item, nil
+}
+
+func (a *app) updatePaymentProof(ctx context.Context, orderID string, ownerID string, proofURL string, note string, rawJSON string) (paymentItem, error) {
+	var item paymentItem
+	err := a.db.QueryRow(ctx, `
+		with updated as (
+			update payments
+			set proof_url = $3,
+				manual_note = $4,
+				raw_payload = raw_payload || $5::jsonb,
+				updated_at = now()
+			where provider_order_id = $1
+				and user_id = $2::uuid
+				and provider = 'manual'
+				and status = 'pending'
+			returning *
+		)
+		select updated.id::text, updated.user_id::text, users.email, users.display_name,
+			updated.provider, updated.provider_order_id, updated.tier, updated.amount_idr,
+			updated.currency, updated.status, updated.checkout_url, updated.proof_url, updated.manual_note,
+			updated.paid_at, updated.refunded_at, updated.verified_at, updated.created_at, updated.updated_at,
+			coalesce(updated.raw_payload->>'mode', '')
+		from updated
+		join users on users.id = updated.user_id
+	`, orderID, ownerID, proofURL, note, rawJSON).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.ProofURL, &item.ManualNote, &item.PaidAt, &item.RefundedAt, &item.VerifiedAt, &item.CreatedAt, &item.UpdatedAt, &item.Mode)
+	if err != nil {
+		return paymentItem{}, errors.New("manual payment is not pending or was not found")
+	}
+	return item, nil
+}
+
+func (a *app) checkoutResponseFromPayment(ctx context.Context, item paymentItem) paymentCheckoutResponse {
+	mode := strings.TrimSpace(item.Mode)
+	if mode == "" {
+		if item.Provider == "manual" {
+			mode = "manual"
+		} else {
+			mode = "gateway"
+		}
+	}
+	var manualInstructions *manualPaymentInstructions
+	if item.Provider == "manual" {
+		instructions := a.manualPaymentInstructions(ctx)
+		manualInstructions = &instructions
+	}
+	return paymentCheckoutResponse{
+		AmountIDR:          item.AmountIDR,
+		CheckoutURL:        item.CheckoutURL,
+		DemoSettleAllowed:  mode == "demo" && item.Status == "pending",
+		ManualInstructions: manualInstructions,
+		Mode:               mode,
+		OrderID:            item.ProviderOrderID,
+		ProofURL:           item.ProofURL,
+		Provider:           item.Provider,
+		Status:             item.Status,
+		Tier:               item.Tier,
+		VerifiedAt:         item.VerifiedAt,
+	}
+}
+
+func (a *app) manualPaymentInstructions(ctx context.Context) manualPaymentInstructions {
+	instructions := strings.TrimSpace(a.paymentSetting(ctx, settingManualInstructions, env("MANUAL_PAYMENT_INSTRUCTIONS", "")))
+	if instructions == "" {
+		instructions = "Transfer sesuai nominal invoice, lalu upload bukti pembayaran. Admin akan memverifikasi dan mengaktifkan paket setelah dana masuk."
+	}
+	return manualPaymentInstructions{
+		BankName:      strings.TrimSpace(a.paymentSetting(ctx, settingManualBankName, env("MANUAL_BANK_NAME", ""))),
+		AccountNumber: strings.TrimSpace(a.paymentSetting(ctx, settingManualAccountNumber, env("MANUAL_ACCOUNT_NUMBER", ""))),
+		AccountName:   strings.TrimSpace(a.paymentSetting(ctx, settingManualAccountName, env("MANUAL_ACCOUNT_NAME", ""))),
+		QRISURL:       strings.TrimSpace(a.paymentSetting(ctx, settingManualQRISURL, env("MANUAL_QRIS_URL", ""))),
+		WhatsApp:      strings.TrimSpace(a.paymentSetting(ctx, settingManualWhatsApp, env("MANUAL_WHATSAPP", ""))),
+		Instructions:  instructions,
+	}
+}
+
+func validPaymentProofURL(value string) bool {
+	value = strings.TrimSpace(value)
+	return strings.HasPrefix(value, "/api/uploads/images/")
 }
 
 func (a *app) settlePayment(ctx context.Context, orderID string, status string, raw map[string]any, ownerID string) (paymentItem, error) {
@@ -332,15 +549,17 @@ func (a *app) settlePayment(ctx context.Context, orderID string, status string, 
 			set status = next_status.effective_status,
 				raw_payload = raw_payload || $3::jsonb,
 				paid_at = case when next_status.effective_status in ('paid', 'settlement') then coalesce(paid_at, now()) else paid_at end,
+				verified_at = case when payments.provider = 'manual' and next_status.effective_status in ('paid', 'settlement') then coalesce(verified_at, now()) else verified_at end,
 				updated_at = now()
 			from next_status
 			where payments.id = next_status.id
 			returning payments.id::text, payments.user_id::text, '', '', payments.provider, payments.provider_order_id,
 				payments.tier, payments.amount_idr, payments.currency, payments.status, payments.checkout_url,
-				payments.paid_at, payments.refunded_at, payments.created_at, payments.updated_at, next_status.previous_status
+				payments.proof_url, payments.manual_note, payments.paid_at, payments.refunded_at, payments.verified_at,
+				payments.created_at, payments.updated_at, coalesce(payments.raw_payload->>'mode', ''), next_status.previous_status
 		)
 		select * from updated
-	`, orderID, status, string(rawBytes), ownerID).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.PaidAt, &item.RefundedAt, &item.CreatedAt, &item.UpdatedAt, &previousStatus)
+	`, orderID, status, string(rawBytes), ownerID).Scan(&item.ID, &item.UserID, &item.UserEmail, &item.UserName, &item.Provider, &item.ProviderOrderID, &item.Tier, &item.AmountIDR, &item.Currency, &item.Status, &item.CheckoutURL, &item.ProofURL, &item.ManualNote, &item.PaidAt, &item.RefundedAt, &item.VerifiedAt, &item.CreatedAt, &item.UpdatedAt, &item.Mode, &previousStatus)
 	if err != nil {
 		return paymentItem{}, errors.New("payment not found")
 	}

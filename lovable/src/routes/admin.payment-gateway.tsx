@@ -5,6 +5,7 @@ import {
   updateAdminPaymentGateways,
   type AdminPaymentGatewayPayload,
   type AdminPaymentGatewaySettings,
+  type ManualPaymentInstructions,
   type PaymentProvider,
 } from "@/lib/api";
 import { CheckCircle2, Copy, CreditCard, Landmark, Loader2, WalletCards } from "lucide-react";
@@ -28,6 +29,12 @@ function PaymentGatewayPage() {
   const [settings, setSettings] = useState<AdminPaymentGatewaySettings>(emptySettings);
   const [activeProvider, setActiveProvider] = useState<PaymentProvider>("manual");
   const [demoPaymentsAllowed, setDemoPaymentsAllowed] = useState(true);
+  const [manualBankName, setManualBankName] = useState("");
+  const [manualAccountNumber, setManualAccountNumber] = useState("");
+  const [manualAccountName, setManualAccountName] = useState("");
+  const [manualQrisUrl, setManualQrisUrl] = useState("");
+  const [manualWhatsApp, setManualWhatsApp] = useState("");
+  const [manualInstructions, setManualInstructions] = useState("");
   const [midtransEnvironment, setMidtransEnvironment] = useState<"sandbox" | "production">("sandbox");
   const [midtransMerchantId, setMidtransMerchantId] = useState("");
   const [midtransClientKey, setMidtransClientKey] = useState("");
@@ -39,15 +46,24 @@ function PaymentGatewayPage() {
   const [message, setMessage] = useState("Memuat konfigurasi payment...");
   const [busy, setBusy] = useState(false);
 
+  const manual = useMemo(() => settings.gateways.find((gateway) => gateway.provider === "manual"), [settings.gateways]);
   const midtrans = useMemo(() => settings.gateways.find((gateway) => gateway.provider === "midtrans"), [settings.gateways]);
   const xendit = useMemo(() => settings.gateways.find((gateway) => gateway.provider === "xendit"), [settings.gateways]);
+  const manualReady = Boolean(manualBankName.trim() && manualAccountNumber.trim()) || Boolean(manualQrisUrl.trim()) || Boolean(manual?.bankName && manual?.accountNumber) || Boolean(manual?.qrisUrl);
 
   const syncForm = (data: AdminPaymentGatewaySettings) => {
+    const manualGateway = data.gateways.find((gateway) => gateway.provider === "manual");
     const midtransGateway = data.gateways.find((gateway) => gateway.provider === "midtrans");
     const xenditGateway = data.gateways.find((gateway) => gateway.provider === "xendit");
     setSettings(data);
     setActiveProvider(data.activeProvider);
     setDemoPaymentsAllowed(data.demoPaymentsAllowed);
+    setManualBankName(manualGateway?.bankName ?? "");
+    setManualAccountNumber(manualGateway?.accountNumber ?? "");
+    setManualAccountName(manualGateway?.accountName ?? "");
+    setManualQrisUrl(manualGateway?.qrisUrl ?? "");
+    setManualWhatsApp(manualGateway?.whatsApp ?? "");
+    setManualInstructions(manualGateway?.instructions ?? "");
     setMidtransEnvironment(midtransGateway?.environment === "production" ? "production" : "sandbox");
     setMidtransMerchantId(midtransGateway?.merchantId ?? "");
     setMidtransClientKey(midtransGateway?.clientKey ?? "");
@@ -75,9 +91,18 @@ function PaymentGatewayPage() {
   const save = async () => {
     setBusy(true);
     setMessage("Menyimpan payment gateway...");
+    const manualPayload: ManualPaymentInstructions = {
+      bankName: manualBankName.trim(),
+      accountNumber: manualAccountNumber.trim(),
+      accountName: manualAccountName.trim(),
+      qrisUrl: manualQrisUrl.trim(),
+      whatsApp: manualWhatsApp.trim(),
+      instructions: manualInstructions.trim(),
+    };
     const payload: AdminPaymentGatewayPayload = {
       activeProvider,
       demoPaymentsAllowed,
+      manual: manualPayload,
       midtrans: {
         environment: midtransEnvironment,
         merchantId: midtransMerchantId.trim(),
@@ -139,7 +164,7 @@ function PaymentGatewayPage() {
             title="Manual"
             icon={Landmark}
             activeProvider={activeProvider}
-            configured
+            configured={manualReady}
             onSelect={setActiveProvider}
           />
         </div>
@@ -163,6 +188,37 @@ function PaymentGatewayPage() {
         </section>
 
         <div className="grid gap-5 xl:grid-cols-2">
+          <section className="rounded-2xl bg-card p-5 hairline">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gold">Manual Transfer / QRIS</p>
+                <h2 className="mt-1 font-serif text-2xl">Konfigurasi Manual</h2>
+              </div>
+              <StatusPill status={manualReady ? "Ready" : "Pending"} />
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Field label="Nama Bank">
+                <input value={manualBankName} onChange={(event) => setManualBankName(event.target.value)} className="admin-input" placeholder="BCA / Mandiri / BRI" />
+              </Field>
+              <Field label="Nomor Rekening">
+                <input value={manualAccountNumber} onChange={(event) => setManualAccountNumber(event.target.value)} className="admin-input" placeholder="1234567890" />
+              </Field>
+              <Field label="Nama Pemilik">
+                <input value={manualAccountName} onChange={(event) => setManualAccountName(event.target.value)} className="admin-input" placeholder="PT / Nama pemilik rekening" />
+              </Field>
+              <Field label="WhatsApp Admin">
+                <input value={manualWhatsApp} onChange={(event) => setManualWhatsApp(event.target.value)} className="admin-input" placeholder="62812..." />
+              </Field>
+              <Field label="URL QRIS">
+                <input value={manualQrisUrl} onChange={(event) => setManualQrisUrl(event.target.value)} className="admin-input" placeholder="/api/uploads/images/qris.png atau https://..." />
+              </Field>
+              <Field label="Instruksi Pembayaran">
+                <textarea value={manualInstructions} onChange={(event) => setManualInstructions(event.target.value)} className="admin-input min-h-24" placeholder="Transfer sesuai nominal invoice, lalu upload bukti pembayaran." />
+              </Field>
+            </div>
+          </section>
+
           <section className="rounded-2xl bg-card p-5 hairline">
             <div className="flex items-start justify-between gap-4">
               <div>
