@@ -49,6 +49,7 @@ export function StatusPill({ status }: { status: string }) {
     Pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     Failed: "bg-rose-500/15 text-rose-300 border-rose-500/30",
     Refunded: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    Cancelled: "bg-muted text-muted-foreground border-border",
     Paused: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     Suspended: "bg-rose-500/15 text-rose-300 border-rose-500/30",
     Expired: "bg-muted text-muted-foreground border-border",

@@ -59,6 +59,7 @@ func (a *app) routes() http.Handler {
 			r.Get("/admin/payment-gateways", a.getAdminPaymentGateways)
 			r.Patch("/admin/payment-gateways", a.updateAdminPaymentGateways)
 			r.Post("/admin/payments/{orderID}/verify", a.verifyManualPayment)
+			r.Post("/admin/payments/{orderID}/cancel", a.cancelPayment)
 			r.Get("/admin/vouchers", a.listVouchers)
 			r.Post("/admin/vouchers", a.createVoucher)
 			r.Post("/admin/refunds", a.refundPayment)

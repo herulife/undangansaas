@@ -535,6 +535,13 @@ export function verifyManualPayment(orderId: string) {
   });
 }
 
+export function cancelPayment(orderId: string, payload?: { reason?: string }) {
+  return request<AdminOrder>(`/api/admin/payments/${orderId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify(payload ?? {}),
+  });
+}
+
 export function refundPayment(payload: { orderId: string; reason?: string }) {
   return request<AdminOrder>("/api/admin/refunds", {
     method: "POST",

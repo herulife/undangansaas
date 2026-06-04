@@ -75,6 +75,10 @@ type refundRequest struct {
 	Reason  string `json:"reason"`
 }
 
+type cancelPaymentRequest struct {
+	Reason string `json:"reason"`
+}
+
 type paymentProofRequest struct {
 	ProofURL string `json:"proofUrl"`
 	Note     string `json:"note"`
@@ -410,6 +414,45 @@ func (a *app) verifyManualPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item, err := a.settlePayment(r.Context(), orderID, "paid", map[string]any{"source": "admin-manual-verify"}, "")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, item)
+}
+
+func (a *app) cancelPayment(w http.ResponseWriter, r *http.Request) {
+	orderID := strings.TrimSpace(chi.URLParam(r, "orderID"))
+	if orderID == "" {
+		writeError(w, http.StatusBadRequest, errors.New("order id is required"))
+		return
+	}
+
+	var payload cancelPaymentRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+	}
+
+	existing, err := a.findPayment(r.Context(), orderID, "")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if existing.Status != "pending" {
+		writeError(w, http.StatusBadRequest, errors.New("only pending payments can be cancelled"))
+		return
+	}
+
+	_, err = a.settlePayment(r.Context(), orderID, "cancelled", map[string]any{
+		"source":      "admin-cancel",
+		"cancelledAt": time.Now().UTC().Format(time.RFC3339),
+		"reason":      strings.TrimSpace(payload.Reason),
+	}, "")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	item, err := a.findPayment(r.Context(), orderID, "")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
