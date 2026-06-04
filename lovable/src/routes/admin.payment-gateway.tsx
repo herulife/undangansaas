@@ -90,9 +90,7 @@ function PaymentGatewayPage() {
     void load();
   }, []);
 
-  const save = async () => {
-    setBusy(true);
-    setMessage("Menyimpan payment gateway...");
+  const buildPayload = (provider: PaymentProvider): AdminPaymentGatewayPayload => {
     const manualPayload: ManualPaymentInstructions = {
       bankName: manualBankName.trim(),
       accountNumber: manualAccountNumber.trim(),
@@ -101,8 +99,8 @@ function PaymentGatewayPage() {
       whatsApp: manualWhatsApp.trim(),
       instructions: manualInstructions.trim(),
     };
-    const payload: AdminPaymentGatewayPayload = {
-      activeProvider,
+    return {
+      activeProvider: provider,
       demoPaymentsAllowed,
       manual: manualPayload,
       midtrans: {
@@ -118,6 +116,12 @@ function PaymentGatewayPage() {
         invoiceUrl: xenditInvoiceUrl.trim() || undefined,
       },
     };
+  };
+
+  const save = async (provider: PaymentProvider = activeProvider) => {
+    setBusy(true);
+    setMessage("Menyimpan payment gateway...");
+    const payload = buildPayload(provider);
     try {
       const data = await updateAdminPaymentGateways(payload);
       syncForm(data);
@@ -139,8 +143,7 @@ function PaymentGatewayPage() {
   };
 
   const activateSelectedProvider = () => {
-    setActiveProvider(selectedProvider);
-    setMessage(`${providerLabel(selectedProvider)} dipilih sebagai gateway aktif. Klik Simpan untuk menerapkan.`);
+    void save(selectedProvider);
   };
 
   return (
@@ -148,7 +151,7 @@ function PaymentGatewayPage() {
       <Topbar title="Payment Gateway" subtitle={message}>
         <button
           type="button"
-          onClick={save}
+          onClick={() => void save()}
           disabled={busy}
           className="inline-flex items-center gap-2 rounded-md bg-gold-gradient px-4 py-2 text-sm text-primary-foreground shadow-gold disabled:opacity-50"
         >
@@ -196,7 +199,7 @@ function PaymentGatewayPage() {
               <p className="text-xs uppercase tracking-widest text-gold">Gateway Aktif</p>
               <h2 className="mt-1 font-serif text-2xl">{providerLabel(activeProvider)}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Tab terbuka: {providerLabel(selectedProvider)}. Perubahan gateway aktif baru berlaku setelah disimpan.
+                Tab terbuka: {providerLabel(selectedProvider)}. Klik tombol aktifkan untuk langsung mengganti gateway checkout.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -212,10 +215,10 @@ function PaymentGatewayPage() {
               <button
                 type="button"
                 onClick={activateSelectedProvider}
-                disabled={activeProvider === selectedProvider}
+                disabled={busy || activeProvider === selectedProvider}
                 className="rounded-md hairline px-4 py-2 text-sm hover:bg-secondary disabled:opacity-50"
               >
-                {activeProvider === selectedProvider ? "Sedang Aktif" : `Jadikan ${providerLabel(selectedProvider)} Aktif`}
+                {activeProvider === selectedProvider ? "Sedang Aktif" : busy ? "Menyimpan..." : `Jadikan ${providerLabel(selectedProvider)} Aktif`}
               </button>
             </div>
           </div>
