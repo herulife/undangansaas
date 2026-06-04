@@ -29,7 +29,7 @@ export function UserSidebar() {
   };
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-border/60 bg-surface/40 min-h-screen sticky top-0 flex-col md:flex">
+    <aside className="hidden h-[calc(100vh-2rem)] w-64 shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-surface/80 shadow-elegant backdrop-blur-xl sticky top-4 flex-col md:flex">
       <div className="px-6 h-16 flex items-center border-b border-border/60">
         <Link to="/" className="font-serif text-xl text-gold-gradient">Undanganku</Link>
       </div>

@@ -54,7 +54,7 @@ function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex md:items-start md:gap-4 md:p-4">
       <AdminSidebar />
       <div className="flex-1 min-w-0 pb-24 md:pb-0">
         <Outlet />
