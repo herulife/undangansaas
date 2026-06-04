@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Topbar, StatCard, StatusPill } from "@/components/dashboard/Shared";
 import { formatInvitationDate, getTemplateBySlug, userInvitations, type Invitation } from "@/lib/invitations";
-import { Plus, Eye, Edit3, Link2, Users } from "lucide-react";
+import { ArrowUpRight, Eye, Edit3, Link2, Plus, Sparkles, Users } from "lucide-react";
 import { getStoredUser, listInvitations, type ApiInvitation } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useTierGate } from "@/hooks/use-tier-gate";
@@ -35,7 +35,7 @@ function DashboardHome() {
           <StatCard label="Undangan Aktif" value={String(published)} hint={`dari ${items.length} total`} accent="gold" />
           <StatCard label="Total Views" value={totalViews.toLocaleString()} hint="+12% minggu ini" accent="info" />
           <StatCard label="RSVP Masuk" value={String(totalRsvp)} hint="184 hadir - 89 tidak" accent="success" />
-          <StatCard label="Paket Aktif" value={tierGate.tier.toUpperCase()} hint={tierGate.features.watermark ? "Watermark aktif" : "Tanpa watermark"} accent="warning" />
+          <PlanUpgradeCard tier={tierGate.tier} watermark={tierGate.features.watermark} />
         </div>
 
         <div className="rounded-2xl bg-card hairline p-6 flex flex-wrap items-center justify-between gap-4">
@@ -78,6 +78,33 @@ function DashboardHome() {
         </div>
       </div>
     </>
+  );
+}
+
+function PlanUpgradeCard({ tier, watermark }: { tier: string; watermark: boolean }) {
+  const isFree = tier === "free";
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-card hairline p-5">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-amber-500/20 to-transparent opacity-70" />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Paket Aktif</p>
+          <p className="font-serif text-3xl mt-2 uppercase">{tier}</p>
+          <p className="text-xs text-muted-foreground mt-2">{watermark ? "Watermark aktif" : "Tanpa watermark"}</p>
+        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold">
+          <Sparkles className="size-5" />
+        </span>
+      </div>
+      <Link
+        to="/dashboard/billing"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient px-4 py-2 text-sm font-medium text-primary-foreground shadow-gold"
+      >
+        {isFree ? "Upgrade Paket" : "Kelola Paket"}
+        <ArrowUpRight className="size-4" />
+      </Link>
+      {isFree && <p className="mt-2 text-center text-[11px] text-muted-foreground">Mulai Rp39rb, tanpa watermark</p>}
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { clearAuthSession, getStoredUser } from "@/lib/api";
 import {
   LayoutDashboard, FileHeart, Plus, LayoutTemplate, MessageSquareHeart,
-  Users, CreditCard, Settings, LogOut,
+  Users, CreditCard, Settings, LogOut, Sparkles,
 } from "lucide-react";
 
 type Item = { to: string; label: string; icon: typeof LayoutDashboard; highlight?: boolean };
@@ -21,6 +21,7 @@ export function UserSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const user = getStoredUser();
   const initial = (user?.displayName || user?.email || "U").slice(0, 1).toUpperCase();
+  const isFree = (user?.tier ?? "free") === "free";
 
   const handleLogout = () => {
     clearAuthSession();
@@ -56,6 +57,22 @@ export function UserSidebar() {
         })}
       </nav>
       <div className="p-3 border-t border-border/60">
+        {isFree && (
+          <Link
+            to="/dashboard/billing"
+            className="mb-3 block rounded-xl border border-gold/25 bg-gold/10 p-3 transition hover:bg-gold/15"
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-gold-gradient text-primary-foreground">
+                <Sparkles className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Upgrade ke Creator</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Tanpa watermark, galeri lebih banyak.</p>
+              </div>
+            </div>
+          </Link>
+        )}
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/40">
           <div className="size-9 rounded-full bg-gold-gradient flex items-center justify-center text-primary-foreground font-medium">{initial}</div>
           <div className="flex-1 min-w-0">
