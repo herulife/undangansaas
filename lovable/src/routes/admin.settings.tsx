@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Topbar } from "@/components/dashboard/Shared";
+import { CreditCard } from "lucide-react";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettings,
@@ -22,10 +23,10 @@ function AdminSettings() {
 
         <section className="rounded-2xl bg-card hairline p-6">
           <h3 className="font-serif text-xl mb-5">Pembayaran</h3>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Midtrans Server Key"><input type="password" defaultValue="**********" className="admin-input" /></Field>
-            <Field label="Xendit API Key"><input type="password" defaultValue="**********" className="admin-input" /></Field>
-          </div>
+          <a href="/admin/payment-gateway" className="inline-flex items-center gap-2 rounded-md bg-gold-gradient px-4 py-2 text-sm text-primary-foreground shadow-gold">
+            <CreditCard className="size-4" />
+            Kelola Payment Gateway
+          </a>
           <div className="mt-5 flex flex-wrap gap-2">
             {["QRIS","BCA","Mandiri","BRI","OVO","DANA","GoPay","Credit Card"].map((m) => (
               <label key={m} className="inline-flex items-center gap-2 rounded-full hairline px-3 py-1.5 text-xs">

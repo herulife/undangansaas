@@ -252,6 +252,15 @@ func migrate(ctx context.Context, db *pgxpool.Pool) error {
 		alter table events add constraint events_name_check
 			check (event_name in ('page_view', 'rsvp_submit', 'share_click', 'upgrade_click', 'publish', 'export_csv', 'guest_opened', 'payment_checkout', 'payment_success', 'whatsapp_send'));
 
+		create table if not exists app_settings (
+			key text primary key,
+			value text not null default '',
+			is_secret boolean not null default false,
+			updated_at timestamptz not null default now()
+		);
+
+		create index if not exists app_settings_updated_at_idx on app_settings (updated_at desc);
+
 		update users
 		set tier = 'free',
 			tier_expires_at = null,

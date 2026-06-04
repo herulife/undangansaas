@@ -38,11 +38,13 @@ services:
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-midtrans}
       ALLOW_DEMO_PAYMENTS: ${ALLOW_DEMO_PAYMENTS:-true}
       MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
+      MIDTRANS_MERCHANT_ID: ${MIDTRANS_MERCHANT_ID:-}
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
       MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
       MIDTRANS_SNAP_URL: ${MIDTRANS_SNAP_URL:-}
       XENDIT_API_KEY: ${XENDIT_API_KEY:-}
       XENDIT_CALLBACK_TOKEN: ${XENDIT_CALLBACK_TOKEN:-}
+      XENDIT_INVOICE_URL: ${XENDIT_INVOICE_URL:-https://api.xendit.co/v2/invoices}
     depends_on:
       undangansaas-db:
         condition: service_healthy

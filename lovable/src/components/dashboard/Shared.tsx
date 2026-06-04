@@ -43,6 +43,8 @@ export function StatusPill({ status }: { status: string }) {
     Published: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     Draft: "bg-muted text-muted-foreground border-border",
     Active: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    Connected: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    Ready: "bg-sky-500/15 text-sky-300 border-sky-500/30",
     Paid: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     Pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     Failed: "bg-rose-500/15 text-rose-300 border-rose-500/30",

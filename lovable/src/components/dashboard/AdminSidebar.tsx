@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { clearAuthSession } from "@/lib/api";
 import {
   LayoutDashboard, Users, LayoutTemplate, ShoppingBag, Ticket,
-  BarChart3, Image, Settings, LogOut, Shield,
+  BarChart3, CreditCard, Image, Settings, LogOut, Shield,
 } from "lucide-react";
 
 type Item = { to: string; label: string; icon: typeof LayoutDashboard };
@@ -11,6 +11,7 @@ const items: Item[] = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { to: "/admin/payment-gateway", label: "Payment Gateway", icon: CreditCard },
   { to: "/admin/voucher", label: "Voucher", icon: Ticket },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/media", label: "Media", icon: Image },

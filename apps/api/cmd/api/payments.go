@@ -64,6 +64,12 @@ type midtransSnapResponse struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
+type xenditInvoiceResponse struct {
+	ID         string `json:"id"`
+	InvoiceURL string `json:"invoice_url"`
+	Status     string `json:"status"`
+}
+
 func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	user, ok := currentUserFromContext(r.Context())
 	if !ok {
@@ -84,7 +90,7 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	provider := normalizePaymentProvider(payload.Provider)
 	if strings.TrimSpace(payload.Provider) == "" {
-		provider = normalizePaymentProvider(env("PAYMENT_PROVIDER", "manual"))
+		provider = normalizePaymentProvider(a.paymentSetting(r.Context(), settingPaymentActiveProvider, env("PAYMENT_PROVIDER", "manual")))
 	}
 	amount := amountForTier(tier)
 	discount, voucherCode, err := a.discountForVoucher(r.Context(), payload.VoucherCode, amount)
@@ -101,7 +107,13 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 	mode := "demo"
 	checkoutURL := fmt.Sprintf("%s/dashboard/billing?order=%s", publicURL(r), orderID)
 	gatewayToken := ""
-	if provider == "midtrans" && paymentProviderConfigured(provider) && amount > 0 {
+	rawPayload := map[string]any{
+		"mode":              mode,
+		"voucherCode":       voucherCode,
+		"discount":          discount,
+		"requestedProvider": payload.Provider,
+	}
+	if provider == "midtrans" && a.paymentProviderConfigured(r.Context(), provider) && amount > 0 {
 		snap, err := a.createMidtransSnap(r.Context(), r, user, orderID, tier, amount)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err)
@@ -110,19 +122,23 @@ func (a *app) createPaymentCheckout(w http.ResponseWriter, r *http.Request) {
 		mode = "gateway"
 		checkoutURL = snap.RedirectURL
 		gatewayToken = snap.Token
-	} else if provider != "manual" && provider != "midtrans" && paymentProviderConfigured(provider) && amount > 0 {
+		rawPayload["mode"] = mode
+		rawPayload["midtransToken"] = gatewayToken
+		rawPayload["midtransEnv"] = a.paymentSetting(r.Context(), settingMidtransEnvironment, env("MIDTRANS_ENV", "sandbox"))
+	} else if provider == "xendit" && a.paymentProviderConfigured(r.Context(), provider) && amount > 0 {
+		invoice, err := a.createXenditInvoice(r.Context(), r, user, orderID, tier, amount)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err)
+			return
+		}
 		mode = "gateway"
-		checkoutURL = paymentCheckoutURL(provider, orderID)
+		checkoutURL = invoice.InvoiceURL
+		rawPayload["mode"] = mode
+		rawPayload["xenditInvoiceID"] = invoice.ID
+		rawPayload["xenditStatus"] = invoice.Status
 	}
 
-	raw, _ := json.Marshal(map[string]any{
-		"mode":              mode,
-		"voucherCode":       voucherCode,
-		"discount":          discount,
-		"midtransToken":     gatewayToken,
-		"midtransEnv":       env("MIDTRANS_ENV", "sandbox"),
-		"requestedProvider": payload.Provider,
-	})
+	raw, _ := json.Marshal(rawPayload)
 
 	_, err = a.db.Exec(r.Context(), `
 		insert into payments (user_id, provider, provider_order_id, idempotency_key, tier, amount_idr, status, checkout_url, raw_payload)
@@ -157,7 +173,7 @@ func (a *app) demoSettlePayment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if env("ALLOW_DEMO_PAYMENTS", "true") != "true" {
+	if !boolSettingEnabled(a.paymentSetting(r.Context(), settingPaymentDemoEnabled, env("ALLOW_DEMO_PAYMENTS", "true"))) {
 		writeError(w, http.StatusForbidden, errors.New("demo payments are disabled"))
 		return
 	}
@@ -205,11 +221,11 @@ func (a *app) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if provider == "midtrans" && !verifyMidtransSignature(payload) {
+	if provider == "midtrans" && !verifyMidtransSignature(payload, a.paymentSetting(r.Context(), settingMidtransServerKey, env("MIDTRANS_SERVER_KEY", ""))) {
 		writeError(w, http.StatusUnauthorized, errors.New("invalid midtrans signature"))
 		return
 	}
-	if provider == "xendit" && !verifyXenditToken(r) {
+	if provider == "xendit" && !a.verifyXenditToken(r) {
 		writeError(w, http.StatusUnauthorized, errors.New("invalid xendit callback token"))
 		return
 	}
@@ -409,27 +425,19 @@ func tierInterval(value string) string {
 	return "12 months"
 }
 
-func paymentProviderConfigured(provider string) bool {
+func (a *app) paymentProviderConfigured(ctx context.Context, provider string) bool {
 	switch provider {
 	case "midtrans":
-		return env("MIDTRANS_SERVER_KEY", "") != ""
+		return a.paymentSetting(ctx, settingMidtransServerKey, env("MIDTRANS_SERVER_KEY", "")) != ""
 	case "xendit":
-		return env("XENDIT_CALLBACK_TOKEN", "") != "" || env("XENDIT_API_KEY", "") != ""
+		return a.paymentSetting(ctx, settingXenditAPIKey, env("XENDIT_API_KEY", "")) != ""
 	default:
 		return false
 	}
 }
 
-func paymentCheckoutURL(provider string, orderID string) string {
-	base := strings.TrimRight(env(strings.ToUpper(provider)+"_CHECKOUT_BASE_URL", ""), "/")
-	if base == "" {
-		return fmt.Sprintf("%s/dashboard/billing?order=%s", env("APP_PUBLIC_URL", "https://cintabuku.site"), orderID)
-	}
-	return base + "/" + orderID
-}
-
 func (a *app) createMidtransSnap(ctx context.Context, r *http.Request, user *authUser, orderID string, tier tierName, amount int) (midtransSnapResponse, error) {
-	serverKey := strings.TrimSpace(env("MIDTRANS_SERVER_KEY", ""))
+	serverKey := strings.TrimSpace(a.paymentSetting(ctx, settingMidtransServerKey, env("MIDTRANS_SERVER_KEY", "")))
 	if serverKey == "" {
 		return midtransSnapResponse{}, errors.New("MIDTRANS_SERVER_KEY is not configured")
 	}
@@ -462,7 +470,7 @@ func (a *app) createMidtransSnap(ctx context.Context, r *http.Request, user *aut
 		return midtransSnapResponse{}, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, midtransSnapEndpoint(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.midtransSnapEndpoint(ctx), bytes.NewReader(body))
 	if err != nil {
 		return midtransSnapResponse{}, err
 	}
@@ -492,6 +500,66 @@ func (a *app) createMidtransSnap(ctx context.Context, r *http.Request, user *aut
 	return snap, nil
 }
 
+func (a *app) createXenditInvoice(ctx context.Context, r *http.Request, user *authUser, orderID string, tier tierName, amount int) (xenditInvoiceResponse, error) {
+	apiKey := strings.TrimSpace(a.paymentSetting(ctx, settingXenditAPIKey, env("XENDIT_API_KEY", "")))
+	if apiKey == "" {
+		return xenditInvoiceResponse{}, errors.New("XENDIT_API_KEY is not configured")
+	}
+
+	callbackBase := publicURL(r)
+	payload := map[string]any{
+		"external_id":          orderID,
+		"amount":               amount,
+		"currency":             "IDR",
+		"description":          "Undanganku " + tierDisplayName(tier),
+		"payer_email":          user.Email,
+		"invoice_duration":     86400,
+		"success_redirect_url": fmt.Sprintf("%s/dashboard/billing?order=%s&status=finish", callbackBase, orderID),
+		"failure_redirect_url": fmt.Sprintf("%s/dashboard/billing?order=%s&status=error", callbackBase, orderID),
+		"items": []map[string]any{
+			{
+				"name":     "Undanganku " + tierDisplayName(tier),
+				"quantity": 1,
+				"price":    amount,
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return xenditInvoiceResponse{}, err
+	}
+
+	endpoint := a.paymentSetting(ctx, settingXenditInvoiceURL, env("XENDIT_INVOICE_URL", defaultXenditInvoiceEndpoint))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return xenditInvoiceResponse{}, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(apiKey+":")))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return xenditInvoiceResponse{}, fmt.Errorf("failed to create Xendit invoice: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return xenditInvoiceResponse{}, fmt.Errorf("Xendit rejected invoice (%d): %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var invoice xenditInvoiceResponse
+	if err := json.Unmarshal(respBody, &invoice); err != nil {
+		return xenditInvoiceResponse{}, err
+	}
+	if invoice.InvoiceURL == "" {
+		return xenditInvoiceResponse{}, errors.New("Xendit response is missing invoice_url")
+	}
+	return invoice, nil
+}
+
 func tierDisplayName(tier tierName) string {
 	switch tier {
 	case tierBusiness:
@@ -505,15 +573,15 @@ func tierDisplayName(tier tierName) string {
 	}
 }
 
-func midtransSnapEndpoint() string {
-	if override := strings.TrimSpace(env("MIDTRANS_SNAP_URL", "")); override != "" {
+func (a *app) midtransSnapEndpoint(ctx context.Context) string {
+	if override := strings.TrimSpace(a.paymentSetting(ctx, settingMidtransSnapURL, env("MIDTRANS_SNAP_URL", ""))); override != "" {
 		return override
 	}
-	switch strings.ToLower(strings.TrimSpace(env("MIDTRANS_ENV", "sandbox"))) {
-	case "production", "prod", "live":
-		return "https://app.midtrans.com/snap/v1/transactions"
+	switch normalizeMidtransEnvironment(a.paymentSetting(ctx, settingMidtransEnvironment, env("MIDTRANS_ENV", "sandbox"))) {
+	case "production":
+		return defaultMidtransProductionSnapURL
 	default:
-		return "https://app.sandbox.midtrans.com/snap/v1/transactions"
+		return defaultMidtransSandboxSnapURL
 	}
 }
 
@@ -589,8 +657,7 @@ func looksLikeMidtransWebhook(payload map[string]any) bool {
 		webhookString(payload, "gross_amount") != ""
 }
 
-func verifyMidtransSignature(payload map[string]any) bool {
-	serverKey := env("MIDTRANS_SERVER_KEY", "")
+func verifyMidtransSignature(payload map[string]any, serverKey string) bool {
 	if serverKey == "" {
 		return false
 	}
@@ -605,10 +672,10 @@ func verifyMidtransSignature(payload map[string]any) bool {
 	return strings.EqualFold(hex.EncodeToString(sum[:]), signature)
 }
 
-func verifyXenditToken(r *http.Request) bool {
-	expected := env("XENDIT_CALLBACK_TOKEN", "")
+func (a *app) verifyXenditToken(r *http.Request) bool {
+	expected := a.paymentSetting(r.Context(), settingXenditCallbackToken, env("XENDIT_CALLBACK_TOKEN", ""))
 	if expected == "" {
-		return true
+		return false
 	}
 	return strings.TrimSpace(r.Header.Get("X-Callback-Token")) == expected
 }

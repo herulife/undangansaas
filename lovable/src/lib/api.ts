@@ -141,6 +141,45 @@ export type PaymentCheckoutResponse = {
   tier: AuthUser["tier"];
 };
 
+export type PaymentProvider = "manual" | "midtrans" | "xendit";
+
+export type AdminPaymentGatewayConfig = {
+  provider: PaymentProvider;
+  label: string;
+  environment: string;
+  enabled: boolean;
+  merchantId?: string;
+  clientKey?: string;
+  serverKeySet: boolean;
+  apiKeySet: boolean;
+  callbackTokenSet: boolean;
+  endpoint?: string;
+};
+
+export type AdminPaymentGatewaySettings = {
+  activeProvider: PaymentProvider;
+  demoPaymentsAllowed: boolean;
+  gateways: AdminPaymentGatewayConfig[];
+  webhooks: Record<"midtrans" | "xendit", string>;
+};
+
+export type AdminPaymentGatewayPayload = {
+  activeProvider: PaymentProvider;
+  demoPaymentsAllowed: boolean;
+  midtrans: {
+    environment: "sandbox" | "production";
+    merchantId: string;
+    clientKey: string;
+    serverKey?: string;
+    snapUrl?: string;
+  };
+  xendit: {
+    apiKey?: string;
+    callbackToken?: string;
+    invoiceUrl?: string;
+  };
+};
+
 export type AdminOrder = {
   id: string;
   userId: string;
@@ -460,6 +499,17 @@ export function listAdminOrders() {
 export function refundPayment(payload: { orderId: string; reason?: string }) {
   return request<AdminOrder>("/api/admin/refunds", {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getAdminPaymentGateways() {
+  return request<AdminPaymentGatewaySettings>("/api/admin/payment-gateways");
+}
+
+export function updateAdminPaymentGateways(payload: AdminPaymentGatewayPayload) {
+  return request<AdminPaymentGatewaySettings>("/api/admin/payment-gateways", {
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 }

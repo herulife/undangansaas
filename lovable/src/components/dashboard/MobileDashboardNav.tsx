@@ -43,6 +43,7 @@ const adminItems: MobileItem[] = [
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag, primary: true },
   { to: "/admin/reports", label: "Reports", icon: BarChart3, primary: true },
   { to: "/admin/templates", label: "Templates", icon: LayoutTemplate },
+  { to: "/admin/payment-gateway", label: "Payment", icon: CreditCard },
   { to: "/admin/voucher", label: "Voucher", icon: Ticket },
   { to: "/admin/media", label: "Media", icon: Image },
   { to: "/admin/settings", label: "Settings", icon: Settings },

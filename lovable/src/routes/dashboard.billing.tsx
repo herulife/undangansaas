@@ -41,14 +41,13 @@ function BillingPage() {
     try {
       const checkout = await createPaymentCheckout({
         tier,
-        provider: "midtrans",
         voucherCode: voucherCode.trim() || undefined,
       });
       setHistory((items) => [checkout, ...items]);
       void trackEvent({ eventName: "upgrade_click", properties: { tier, amountIdr: checkout.amountIdr } }).catch(() => undefined);
 
       if (checkout.demoSettleAllowed) {
-        setMessage(checkout.provider === "midtrans" ? "Midtrans belum dikonfigurasi, mode demo aktif..." : "Mode demo aktif, memproses settlement otomatis...");
+        setMessage(`Mode demo aktif untuk ${providerLabel(checkout.provider)}, memproses otomatis...`);
         await demoSettlePayment(checkout.orderId);
         await tierGate.reload();
         setHistory((items) => items.map((item) => (item.orderId === checkout.orderId ? { ...item, status: "paid" } : item)));
@@ -56,7 +55,7 @@ function BillingPage() {
         return;
       }
 
-      setMessage("Membuka halaman pembayaran Midtrans...");
+      setMessage(`Membuka halaman pembayaran ${providerLabel(checkout.provider)}...`);
       window.location.href = checkout.checkoutUrl;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Gagal membuat pembayaran.");
@@ -157,4 +156,10 @@ function paymentStatusLabel(status: string) {
   if (status === "failed" || status === "cancelled") return "Failed";
   if (status === "expired") return "Expired";
   return "Pending";
+}
+
+function providerLabel(provider: string) {
+  if (provider === "midtrans") return "Midtrans";
+  if (provider === "xendit") return "Xendit";
+  return "Manual";
 }
